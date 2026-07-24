@@ -94,6 +94,21 @@ export function skipCity(id: number): Promise<{ skipped: boolean; id: number }> 
   });
 }
 
+export type CityStatus = 'pending' | 'active' | 'done' | 'skipped';
+
+// Set a city's crawl status directly (Done / Active / Skip / Pending) from the
+// cities table. 'skipped' behaves like skipCity above; 'done'/'active' override
+// the crawl state; 'pending' returns the city to the work list.
+export function setCityStatus(
+  id: number,
+  status: CityStatus,
+): Promise<{ updated: boolean; id: number; status: CityStatus }> {
+  return apiClient<{ updated: boolean; id: number; status: CityStatus }>(`/api/cities/${id}/status`, {
+    method: 'POST',
+    body: JSON.stringify({ status }),
+  });
+}
+
 export function listEnrichmentOptions(): string[] {
   return [
     'Scan README for email',

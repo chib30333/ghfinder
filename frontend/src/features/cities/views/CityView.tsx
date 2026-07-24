@@ -1,5 +1,6 @@
 import { Icon } from '@/lib/icons';
 import { Badge, Button, Card, DataTable, InfoTip, Spinner, StateCard, type Column } from '@/components/ui';
+import { CityStatusButtons } from '@/components/CityStatusButtons';
 import { HINTS } from '@/lib/hints';
 import type { V } from '@/hooks/useApp';
 
@@ -15,6 +16,14 @@ export function CityView({ v }: { v: V }) {
     { id: 'status', header: 'Status', cell: (c) => <Badge tone={c.statusTone} dot>{c.status}</Badge> },
     { id: 'found', header: 'Leads', align: 'right', className: 'font-mono', cell: (c) => c.found },
     { id: 'updated', header: 'Updated', align: 'right', className: 'text-muted text-[12px]', cell: (c) => c.updated },
+    {
+      id: 'actions',
+      header: 'Status controls',
+      headerAlign: 'right',
+      align: 'right',
+      width: 'w-[236px]',
+      cell: (c) => <CityStatusButtons actions={c.statusActions} />,
+    },
   ];
 
   return (
@@ -103,7 +112,7 @@ export function CityView({ v }: { v: V }) {
             totalRows={cv.total}
             onPageChange={cv.setPage}
             onPageSizeChange={cv.setPageSize}
-            minWidthClass="min-w-[520px]"
+            minWidthClass="min-w-[720px]"
             loading={cv.loading}
             error={cv.error}
             errorState={{

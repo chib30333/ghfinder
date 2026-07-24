@@ -2,6 +2,7 @@ import { cn } from '@/lib/utils';
 import { Icon } from '@/lib/icons';
 import { toneQuietBg, toneText } from '@/lib/tone';
 import { Badge, Button, Card, DataTable, Dot, InfoTip, Input, Spinner, Toggle, type Column } from '@/components/ui';
+import { CityStatusButtons } from '@/components/CityStatusButtons';
 import { HINTS } from '@/lib/hints';
 import type { V } from '@/hooks/useApp';
 
@@ -17,15 +18,11 @@ export function DiscoveryView({ v }: { v: V }) {
     { id: 'updated', header: 'Updated', align: 'right', className: 'text-muted text-[12px]', cell: (c) => c.updated },
     {
       id: 'actions',
-      header: '',
+      header: 'Status controls',
+      headerAlign: 'right',
       align: 'right',
-      width: 'w-[72px]',
-      cell: (c) =>
-        c.canSkip ? (
-          <Button size="xs" variant="soft" onClick={c.skip}>
-            <Icon name="skip" size={13} /> Skip
-          </Button>
-        ) : null,
+      width: 'w-[236px]',
+      cell: (c) => <CityStatusButtons actions={c.statusActions} />,
     },
   ];
 
@@ -121,7 +118,7 @@ export function DiscoveryView({ v }: { v: V }) {
                   onPageSizeChange: paged.setPageSize,
                 }
               : {})}
-            minWidthClass="min-w-[520px]"
+            minWidthClass="min-w-[720px]"
             loading={v.citiesLoading}
             error={v.citiesError}
             errorState={{
