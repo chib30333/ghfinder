@@ -1,0 +1,16 @@
+{
+  "name": "@ghfinder/cli",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Command-line front door for the ghfinder engine.",
+  "bin": {
+    "ghfinder": "src/cli.mjs"
+  },
+  "dependencies": {
+    "@ghfinder/core": "*"
+  },
+  "engines": {
+    "node": ">=22.5.0"
+  }
+}

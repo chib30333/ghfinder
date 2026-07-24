@@ -1,0 +1,12 @@
+{
+  "name": "ghfinder-dev",
+  "private": true,
+  "version": "1.0.0",
+  "type": "module",
+  "description": "Dev launcher — runs the ghfinder backend API and frontend together.",
+  "scripts": {
+    "dev": "node dev.mjs",
+    "dev:api": "node backend/apps/server/src/index.mjs",
+    "dev:web": "npm --prefix frontend run dev"
+  }
+}

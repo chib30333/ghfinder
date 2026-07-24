@@ -1,0 +1,7 @@
+{
+  "name": "@ghfinder/web",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "description": "React + Vite dashboard for ghfinder. Scaffold — populate with create-vite."
+}

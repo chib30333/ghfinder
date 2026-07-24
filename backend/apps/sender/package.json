@@ -1,0 +1,18 @@
+{
+  "name": "@ghfinder/sender",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Multi-account Gmail outreach sender — drives signed-in Gmail tabs over Chrome CDP, rotating recipients round-robin across accounts.",
+  "bin": {
+    "ghfinder-send": "src/index.mjs"
+  },
+  "scripts": {
+    "draft": "node src/index.mjs",
+    "send": "node src/index.mjs --send"
+  },
+  "dependencies": {
+    "@ghfinder/core": "*",
+    "playwright-core": "^1.48.0"
+  }
+}

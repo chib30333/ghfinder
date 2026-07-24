@@ -1,0 +1,44 @@
+# ---- Dependencies --------------------------------------------------------
+node_modules/
+
+# ---- Secrets / local env -------------------------------------------------
+# .env holds GITHUB_TOKEN and other credentials — never commit it.
+.env
+.env.*
+!.env.example
+
+# ---- Runtime database ----------------------------------------------------
+# SQLite DB and its WAL/SHM sidecars are generated locally and can be huge.
+data/*.sqlite
+data/*.sqlite-shm
+data/*.sqlite-wal
+
+# ---- Generated artifacts -------------------------------------------------
+# Export text files (GHFINDER_TEXTDIR, default data/cities), social-link CSV,
+# HTTP cache, and cloned repos are all produced at runtime.
+data/cities/
+data/link.csv
+.cache/
+clones/
+
+# Source data that IS tracked (kept for reference — they are NOT ignored):
+#   data/us_cities.csv     — US gazetteer the crawler seeds from
+#   data/ges-template.json — export template
+
+# ---- Logs ----------------------------------------------------------------
+*.log
+logs/
+npm-debug.log*
+
+# ---- Build output --------------------------------------------------------
+dist/
+dist-ssr/
+*.local
+
+# ---- Editor / OS ---------------------------------------------------------
+.DS_Store
+Thumbs.db
+.vscode/*
+!.vscode/extensions.json
+data
+

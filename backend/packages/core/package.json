@@ -1,0 +1,14 @@
+{
+  "name": "@ghfinder/core",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "ghfinder engine: GitHub harvesting, SQLite persistence, exports, and outreach batch building.",
+  "main": "src/index.mjs",
+  "exports": {
+    ".": "./src/index.mjs"
+  },
+  "engines": {
+    "node": ">=22.5.0"
+  }
+}

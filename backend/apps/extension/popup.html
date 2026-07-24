@@ -1,0 +1,94 @@
+<!doctype html>
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <style>
+      body {
+        font-family: "Segoe UI", Roboto, Arial, sans-serif;
+        width: 360px;
+        margin: 0;
+        padding: 12px;
+        background: #fff;
+        color: #202124;
+      }
+      h1 {
+        font-size: 15px;
+        margin: 0 0 8px;
+      }
+      p.hint {
+        font-size: 11px;
+        color: #5f6368;
+        margin: 0 0 8px;
+      }
+      textarea {
+        width: 100%;
+        height: 150px;
+        box-sizing: border-box;
+        font-family: Consolas, "Courier New", monospace;
+        font-size: 12px;
+        border: 1px solid #dadce0;
+        border-radius: 6px;
+        padding: 8px;
+        resize: vertical;
+      }
+      .row {
+        display: flex;
+        gap: 8px;
+        align-items: center;
+        margin-top: 8px;
+      }
+      button {
+        background: #1a73e8;
+        color: #fff;
+        border: none;
+        border-radius: 6px;
+        padding: 8px 14px;
+        font-size: 13px;
+        cursor: pointer;
+      }
+      button.secondary {
+        background: #f1f3f4;
+        color: #202124;
+      }
+      button:disabled {
+        opacity: 0.5;
+        cursor: default;
+      }
+      #log {
+        margin-top: 10px;
+        font-size: 12px;
+        max-height: 160px;
+        overflow: auto;
+        border-top: 1px solid #eee;
+        padding-top: 8px;
+      }
+      .ok {
+        color: #188038;
+      }
+      .err {
+        color: #d93025;
+      }
+      .muted {
+        color: #5f6368;
+      }
+    </style>
+  </head>
+  <body>
+    <h1>Gmail Multi-Tab Sender</h1>
+    <p class="hint">
+      Paste a JSON list. Entry #1 goes to Gmail tab #1 (left→right), #2 to tab
+      #2, and so on. Each tab must already have its compose window open.
+    </p>
+    <textarea id="items" spellcheck="false">
+[
+  { "email": "alice@example.com", "subject": "Hello", "message": "Hi Alice,\nThis is a test.\n\nThanks" },
+  { "email": "bob@example.com",   "subject": "Hello", "message": "Hi Bob,\nSecond message." }
+]</textarea>
+    <div class="row">
+      <button id="start">Send to all tabs</button>
+      <button id="loadSame" class="secondary">Same message to all…</button>
+    </div>
+    <div id="log"></div>
+    <script src="popup.js"></script>
+  </body>
+</html>

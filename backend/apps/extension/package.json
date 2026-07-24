@@ -1,0 +1,9 @@
+{
+  "name": "@ghfinder/extension",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Gmail Multi-Tab Sender — Chrome MV3 extension that fills the open compose window in each Gmail tab from a pasted list and clicks Send.",
+  "scripts": {
+    "load": "echo \"Load unpacked: chrome://extensions -> Developer mode -> Load unpacked -> apps/extension\""
+  }
+}

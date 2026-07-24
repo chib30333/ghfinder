@@ -1,0 +1,14 @@
+{
+  "name": "@ghfinder/backend",
+  "private": true,
+  "version": "1.0.0",
+  "type": "module",
+  "description": "ghfinder backend — engine (core) plus the local API server, CLI, and sender.",
+  "workspaces": [
+    "packages/*",
+    "apps/*"
+  ],
+  "scripts": {
+    "server": "node apps/server/src/index.mjs"
+  }
+}

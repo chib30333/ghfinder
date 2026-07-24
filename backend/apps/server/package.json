@@ -1,0 +1,16 @@
+{
+  "name": "@ghfinder/server",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "description": "Local HTTP API (REST + SSE) exposing the ghfinder engine to the web UI. Scaffold — not yet implemented.",
+  "main": "src/index.mjs",
+  "scripts": {
+    "dev": "node src/index.mjs"
+  },
+  "dependencies": {
+    "@fastify/cors": "^11.3.0",
+    "@ghfinder/core": "*",
+    "fastify": "^5.10.0"
+  }
+}

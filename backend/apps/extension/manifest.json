@@ -1,0 +1,22 @@
+{
+  "manifest_version": 3,
+  "name": "Gmail Multi-Tab Sender",
+  "version": "1.0.0",
+  "description": "Fills the already-open Gmail compose window in each Gmail tab from a list you provide, clicks Send, then moves to the next tab.",
+  "permissions": ["tabs", "scripting"],
+  "host_permissions": ["https://mail.google.com/*"],
+  "action": {
+    "default_popup": "popup.html",
+    "default_title": "Gmail Multi-Tab Sender"
+  },
+  "background": {
+    "service_worker": "background.js"
+  },
+  "content_scripts": [
+    {
+      "matches": ["https://mail.google.com/*"],
+      "js": ["content.js"],
+      "run_at": "document_idle"
+    }
+  ]
+}
