@@ -1,4 +1,9 @@
-import { listCities, loadCities, loadCountryCities, loadAllCountryCities, listCountries, cityCountsByState, countryStates, skipCity } from '@ghfinder/core';
+import { listCities, loadCities, loadCountryCities, loadAllCountryCities, listCountries, cityCountsByState, countryStates, skipCity, setCityStatus } from '@ghfinder/core';
+
+// Statuses an operator may set from the cities table. 'pending' returns a city to
+// the crawl work list; 'active'/'done' override its crawl state; 'skipped' drops
+// it (and aborts it if the crawler is mid-city — the runner polls cityStatus).
+const CITY_STATUSES = new Set(['pending', 'active', 'done', 'skipped']);
 
 export default async function citiesRoutes(fastify) {
   fastify.get('/cities', async (req) => {
@@ -21,6 +26,17 @@ export default async function citiesRoutes(fastify) {
     if (!Number.isInteger(id) || id <= 0) return reply.code(400).send({ error: 'invalid city id' });
     if (!skipCity(id)) return reply.code(404).send({ error: 'city not found' });
     return { skipped: true, id };
+  });
+
+  // Set a city's crawl status directly from the cities table (Done / Active /
+  // Skip / return to Pending). Backs the per-row status buttons in the UI.
+  fastify.post('/cities/:id/status', async (req, reply) => {
+    const id = Number(req.params.id);
+    if (!Number.isInteger(id) || id <= 0) return reply.code(400).send({ error: 'invalid city id' });
+    const status = req.body?.status;
+    if (!CITY_STATUSES.has(status)) return reply.code(400).send({ error: 'invalid status' });
+    if (setCityStatus(id, status).changes === 0) return reply.code(404).send({ error: 'city not found' });
+    return { updated: true, id, status };
   });
 
   fastify.get('/countries', async () => listCountries(cityCountsByState()));

@@ -13,6 +13,7 @@ import {
   fetchCountries,
   loadCities as svcLoadCities,
   skipCity as svcSkipCity,
+  setCityStatus as svcSetCityStatus,
   loadCountryCities as svcLoadCountryCities,
   loadAllCountryCities as svcLoadAllCountryCities,
   fetchExports,
@@ -42,7 +43,7 @@ import {
   fetchCampaignSendStatus,
   CAMPAIGN_STREAM_URL,
 } from '@/services';
-import type { JobLine, JobStatus, LeadSortKey, LeadSource, CountriesResponse, QueryMode } from '@/services';
+import type { JobLine, JobStatus, LeadSortKey, LeadSource, CountriesResponse, QueryMode, CityStatus } from '@/services';
 import { fmt } from '@/lib/format';
 import { hue, initials } from '@/lib/avatar';
 import type {
@@ -275,7 +276,10 @@ interface AppState {
   loadingCountry: boolean;
   searchingCountry: boolean;
   loadingCities: boolean;
-  skipped: Record<number, boolean>;
+  // Optimistic per-city status overrides keyed by city id, applied on top of the
+  // fetched status until the next refetch confirms them. Set by the Done/Active/
+  // Skip row buttons; reverted on API error.
+  cityOverride: Record<number, City['status']>;
   dailyCap: number;
   enrich: boolean[];
   reposToScan: number;
@@ -321,7 +325,7 @@ const INITIAL: AppState = {
   discoveryPage: DISCOVERY0.page, discoveryPageSize: DISCOVERY0.pageSize,
   discoverySearch: DISCOVERY0.query, discoveryQuery: DISCOVERY0.query,
   recentCities: loadRecentCities(),
-  loadingCountry: false, searchingCountry: false, loadingCities: false, skipped: {},
+  loadingCountry: false, searchingCountry: false, loadingCities: false, cityOverride: {},
   dailyCap: SAFE_DAILY_CAP, enrich: [true, true, true, true], reposToScan: 5,
   senders: [],
   subject: 'Hi, {{firstName}}',
@@ -1102,26 +1106,53 @@ export function useApp() {
   const visibleCityList = citySearchQ
     ? activeCityList.filter((c) => `${c.city} ${c.state}`.toLowerCase().includes(citySearchQ))
     : activeCityList;
+  // Per-row status controls (Done / Active / Skip) shared by the Discovery and
+  // City-view city tables. Each optimistically overrides the city's status, then
+  // persists it; on API error the override reverts so the row snaps back.
+  const CITY_ACTIONS: { status: City['status']; label: string; iconName: string }[] = [
+    { status: 'done', label: 'Done', iconName: 'check' },
+    { status: 'active', label: 'Active', iconName: 'play' },
+    { status: 'skipped', label: 'Skip', iconName: 'skip' },
+  ];
+  const setCityStatus = (id: number, cityName: string, status: CityStatus) => {
+    const prev = stateRef.current.cityOverride[id];
+    if ((prev ?? null) === status) return;
+    update((st) => ({ cityOverride: { ...st.cityOverride, [id]: status } }));
+    svcSetCityStatus(id, status)
+      .then(() => {
+        const msg =
+          status === 'skipped' ? `Skipped ${cityName} — crawler moves to the next city`
+            : status === 'done' ? `Marked ${cityName} done`
+              : status === 'active' ? `Marked ${cityName} active`
+                : `${cityName} set to ${status}`;
+        toast(msg, status === 'skipped' ? 'warning' : 'success');
+      })
+      .catch((e) => {
+        update((st) => {
+          const nx = { ...st.cityOverride };
+          if (prev === undefined) delete nx[id]; else nx[id] = prev;
+          return { cityOverride: nx };
+        });
+        toast(errMsg(e, 'Could not update city status'), 'danger');
+      });
+  };
+  const cityStatusActions = (id: number, current: City['status'], cityName: string) =>
+    CITY_ACTIONS.map((a) => ({
+      key: a.status,
+      label: a.label,
+      iconName: a.iconName,
+      // The button matching the city's current status is shown selected + disabled.
+      current: current === a.status,
+      onClick: () => setCityStatus(id, cityName, a.status),
+    }));
+
   const cities = visibleCityList.map((c, i) => {
-    const isSkipped = c.status === 'skipped' || !!s.skipped[c.id];
-    const status = isSkipped ? ('skipped' as const) : c.status;
+    const status = s.cityOverride[c.id] ?? c.status;
     return {
       ...c, key: i, status,
       found: c.found ? fmt(c.found) : '—', foundRaw: c.found ?? 0,
       statusTone: CITY_TONE[status],
-      // Skipping only makes sense for cities still in the work list; a done or
-      // already-skipped city has nothing to advance past.
-      canSkip: !isSkipped && c.status !== 'done',
-      skip: () => {
-        if (stateRef.current.skipped[c.id]) return;
-        update((st) => ({ skipped: { ...st.skipped, [c.id]: true } }));
-        svcSkipCity(c.id)
-          .then(() => toast(`Skipped ${c.city} — crawler moves to the next city`, 'info'))
-          .catch((e) => {
-            update((st) => { const nx = { ...st.skipped }; delete nx[c.id]; return { skipped: nx }; });
-            toast(errMsg(e, 'Could not skip city'), 'danger');
-          });
-      },
+      statusActions: cityStatusActions(c.id, status, c.city),
     };
   });
 
@@ -1155,16 +1186,20 @@ export function useApp() {
   // City-view rows and the country picker's options, built here where flagEmoji
   // is in scope. Rows are read-only (no skip): this page is a browse, not the
   // crawl control surface Discovery provides.
-  const cityViewRows = cityViewRes.data.cities.map((c, i) => ({
-    key: c.id || i,
-    city: c.city,
-    state: c.state,
-    status: c.status,
-    statusTone: CITY_TONE[c.status],
-    found: c.found ? fmt(c.found) : '—',
-    foundRaw: c.found ?? 0,
-    updated: c.updated,
-  }));
+  const cityViewRows = cityViewRes.data.cities.map((c, i) => {
+    const status = s.cityOverride[c.id] ?? c.status;
+    return {
+      key: c.id || i,
+      city: c.city,
+      state: c.state,
+      status,
+      statusTone: CITY_TONE[status],
+      found: c.found ? fmt(c.found) : '—',
+      foundRaw: c.found ?? 0,
+      updated: c.updated,
+      statusActions: cityStatusActions(c.id, status, c.city),
+    };
+  });
   const cityViewCountryOptions = countryData.countries
     .map((c) => ({ code: c.code, name: c.name, flag: flagEmoji(c.code) }))
     .sort((a, b) => a.name.localeCompare(b.name));
