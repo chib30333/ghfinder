@@ -364,12 +364,18 @@ export function DataTable<Row>({
             </span>
           </div>
           <div className="flex items-center gap-1.5">
+            <Button size="sm" onClick={() => goToPage(0)} disabled={activePage === 0}>
+              First
+            </Button>
             <Button size="sm" onClick={() => goToPage(activePage - 1)} disabled={activePage === 0}>
               Prev
             </Button>
             <span className="font-mono px-1 text-fg">{activePage + 1}/{pageCount}</span>
             <Button size="sm" onClick={() => goToPage(activePage + 1)} disabled={activePage >= pageCount - 1}>
               Next
+            </Button>
+            <Button size="sm" onClick={() => goToPage(pageCount - 1)} disabled={activePage >= pageCount - 1}>
+              Last
             </Button>
           </div>
         </div>
