@@ -46,6 +46,7 @@ import {
 import type { JobLine, JobStatus, LeadSortKey, LeadSource, CountriesResponse, QueryMode, CityStatus } from '@/services';
 import { fmt } from '@/lib/format';
 import { hue, initials } from '@/lib/avatar';
+import { copyToClipboard } from '@/lib/utils';
 import type {
   Account,
   AuthUser,
@@ -917,7 +918,13 @@ export function useApp() {
       hireLabel: u.hireable ? 'Yes' : 'No', hireTone: (u.hireable ? 'success' : 'neutral') as Tone,
       tg: u.tg, dc: u.dc, selected,
       toggle: () => update((st) => ({ sel: { ...st.sel, [u.login]: !st.sel[u.login] } })),
-      copyEmail: (e: React.MouseEvent) => { e.preventDefault(); e.stopPropagation(); toast(u.email ? 'Copied ' + u.email : 'No email on this lead', u.email ? 'success' : 'warning'); },
+      copyEmail: (e: React.MouseEvent) => {
+        e.preventDefault(); e.stopPropagation();
+        if (!u.email) { toast('No email on this lead', 'warning'); return; }
+        copyToClipboard(u.email).then((ok) =>
+          toast(ok ? 'Copied ' + u.email : 'Could not copy to clipboard', ok ? 'success' : 'danger'),
+        );
+      },
       openDetail: (e: React.MouseEvent) => {
         e.preventDefault(); e.stopPropagation();
         patch({ drawer: u, rawOpen: false, drawerLoading: true });
@@ -1062,7 +1069,12 @@ export function useApp() {
     records: f.records ? fmt(f.records) : '—', recordsRaw: f.records ?? 0,
     size: f.size, created: f.created,
     fileTone: FILE_TONE[f.kind],
-    copyPath: () => toast('Copied ./exports/' + f.name, 'success'),
+    copyPath: () => {
+      const path = './exports/' + f.name;
+      copyToClipboard(path).then((ok) =>
+        toast(ok ? 'Copied ' + path : 'Could not copy to clipboard', ok ? 'success' : 'danger'),
+      );
+    },
     downloadFile: () => toast('Downloading ' + f.name, 'info'),
   }));
 
