@@ -131,6 +131,17 @@ const BOUNCE_ADDR_RE =
 const isDaemonAddr = (a) =>
   a.includes('mailer-daemon') || a.endsWith('@google.com') || a.endsWith('@googlemail.com');
 
+// Block detection. When Gmail throttles an account's outgoing mail (reputation /
+// spam flag), it drops a "Message blocked … has been blocked" notice into THAT
+// account's own inbox. Sending more from a blocked account the same day just
+// bounces every message and hardens the flag, so an account with such a notice
+// in the last day is pulled from the rotation for the whole run. The search
+// finds the notice by its heading; the confirm regex deliberately matches only
+// body wording NOT present in the query, so an echoed search term can't false-
+// positive every account.
+const BLOCK_SEARCH = '"message blocked" newer_than:1d';
+const BLOCK_CONFIRM_RE = /been blocked|was blocked/i;
+
 const uIndexOf = (url) => {
   const m = url.match(/\/mail\/u\/(\d+)\//);
   return m ? parseInt(m[1], 10) : null;
@@ -308,6 +319,42 @@ async function sweepBounces(context, accounts, cache) {
   return removed;
 }
 
+// Scan each sending account's inbox for a recent "Message blocked" notice and
+// return the set of account slot indexes that have one. An account in this set
+// is being throttled by Gmail today and must be excluded from the run. Because
+// the notice lingers in the inbox all day, every run that day re-detects it —
+// so the exclusion effectively lasts the day, which is what we want. Best-effort:
+// a failed scan for one account is skipped and never aborts the run.
+async function sweepBlocks(context, accounts, cache) {
+  const blocked = new Set();
+  for (const acct of accounts) {
+    let page;
+    try {
+      page = await pageForAccount(context, acct.index, cache);
+    } catch {
+      continue; // account tab not ready — skip its scan, don't abort
+    }
+
+    const q = encodeURIComponent(BLOCK_SEARCH);
+    await page.goto(`https://mail.google.com/mail/u/${acct.index}/#search/${q}`).catch(() => {});
+    // Gmail is an SPA; nudge its router in case goto was a same-document hash
+    // change, then let the result list settle.
+    await page.evaluate((hash) => { window.location.hash = `search/${hash}`; }, q).catch(() => {});
+    await page.waitForLoadState('networkidle').catch(() => {});
+    await sleep(1500);
+
+    let text = '';
+    try {
+      text = await page.getByRole('main').first().innerText();
+    } catch {
+      text = '';
+    }
+
+    if (BLOCK_CONFIRM_RE.test(text)) blocked.add(acct.index);
+  }
+  return blocked;
+}
+
 async function main() {
   const SWEEP_ONLY = process.argv.includes('--sweep-only');
   const NO_SWEEP = process.argv.includes('--no-sweep');
@@ -354,6 +401,35 @@ async function main() {
     return;
   }
 
+  // Pull any account Gmail has recently blocked out of today's rotation. A
+  // "Message blocked" notice in an account's own inbox means Gmail is throttling
+  // its outgoing mail; sending more from it today only bounces and hardens the
+  // flag. Only relevant when actually sending; --no-sweep disables it too.
+  let blockedToday = new Set();
+  if (SEND && !NO_SWEEP) {
+    try {
+      blockedToday = await sweepBlocks(context, accounts, cache);
+      if (blockedToday.size) {
+        const names = accounts
+          .filter((a) => blockedToday.has(a.index))
+          .map((a) => `/u/${a.index}/ ${a.email ?? ''}`.trim());
+        console.log(
+          `Block sweep: excluding ${blockedToday.size} account(s) blocked by Gmail in the last day — ${names.join(', ')}.`
+        );
+      } else {
+        console.log('Block sweep: no accounts blocked in the last day.');
+      }
+    } catch (e) {
+      console.log(`Block sweep skipped (${e.message}).`);
+    }
+  }
+  if (blockedToday.size >= accounts.length) {
+    throw new Error(
+      'Every sending account was blocked by Gmail in the last day — nothing safe to send from today. ' +
+        'Add another account or retry tomorrow.'
+    );
+  }
+
   const limit = ALL ? -1 : Math.max(1, COUNT);
   const fetched = recipients({ offset: INDEX, limit });
   if (fetched.length === 0) throw new Error(`No recipients with an email at offset ${INDEX}`);
@@ -397,8 +473,12 @@ async function main() {
   console.log(`DB: ${config.dbPath}`);
   console.log(`Recipients to process: ${users.length} (from offset ${INDEX})`);
   console.log(`Send:  ${SEND ? 'YES (will click Send)' : 'no (draft only)'}`);
-  console.log(`Sending accounts (${accounts.length}, round-robin):`);
-  for (const a of accounts) console.log(`  /u/${a.index}/  ${a.email ?? '(unknown)'}`);
+  const activeCount = accounts.filter((a) => !blockedToday.has(a.index)).length;
+  console.log(`Sending accounts (${activeCount} of ${accounts.length} usable, round-robin):`);
+  for (const a of accounts) {
+    const flag = blockedToday.has(a.index) ? '  (blocked today — excluded)' : '';
+    console.log(`  /u/${a.index}/  ${a.email ?? '(unknown)'}${flag}`);
+  }
   if (PER_ACCOUNT > 0) console.log(`Per-account cap: ${PER_ACCOUNT} message(s)/account/day.`);
   // Remaining headroom for THIS run = cap − whatever the account already sent today.
   // Zero (or no) PER_ACCOUNT means uncapped; an account already at the cap gets 0.
@@ -421,7 +501,9 @@ async function main() {
   // streak, drop it from the rotation after too many in a row, and stop the whole
   // run only once every account is dropped (or capped, or the browser is gone).
   const failPer = new Map(accounts.map((a) => [a.index, 0]));
-  const dropped = new Set();
+  // Seed the drop-set with accounts Gmail blocked today so the rotation never
+  // routes to them — they're treated exactly like an account that failed out.
+  const dropped = new Set(blockedToday);
   const MAX_ACCOUNT_FAILURES = 5;
   let rr = 0;
   let done = 0;
@@ -450,7 +532,7 @@ async function main() {
       const allDropped = accounts.every((a) => dropped.has(a.index));
       console.log(
         allDropped
-          ? `\nEvery account was dropped after repeated failures — stopping.`
+          ? `\nEvery account was excluded (blocked by Gmail or dropped after repeated failures) — stopping.`
           : `\nAll ${accounts.length} accounts hit the per-account cap (${PER_ACCOUNT}). Stopping.`
       );
       break;
@@ -501,7 +583,10 @@ async function main() {
 
   console.log(`\nDone. ${SEND ? 'Sent' : 'Drafted'} ${done} message(s)${failed ? `, ${failed} skipped after errors` : ''}.`);
   console.log('Per-account totals:');
-  for (const a of accounts) console.log(`  /u/${a.index}/ ${a.email ?? ''}: ${sentPer.get(a.index)}`);
+  for (const a of accounts) {
+    const flag = blockedToday.has(a.index) ? ' (blocked today — excluded)' : '';
+    console.log(`  /u/${a.index}/ ${a.email ?? ''}: ${sentPer.get(a.index)}${flag}`);
+  }
 
   // If we aborted because Chrome went away, closing an already-disconnected
   // browser throws — swallow it so the run still exits cleanly with its summary.
