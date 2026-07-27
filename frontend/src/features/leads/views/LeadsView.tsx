@@ -2,6 +2,7 @@ import { Icon } from '@/lib/icons';
 import { cn } from '@/lib/utils';
 import { Avatar, Badge, Button, Card, DataTable, IconButton, InfoTip, SearchBox, type Column } from '@/components/ui';
 import { HINTS } from '@/lib/hints';
+import { StatusButtons } from '@/components/StatusButtons';
 import type { V } from '@/hooks/useApp';
 
 type LeadRow = V['leads'][number];
@@ -42,6 +43,7 @@ export function LeadsView({ v }: { v: V }) {
           <span className="text-muted text-[12px]">—</span>
         ),
     },
+    { id: 'status', header: 'Status', cell: (u) => <Badge tone={u.statusTone} dot>{u.status}</Badge> },
     { id: 'followers', header: 'Followers', sortable: true, align: 'right', className: 'font-mono', cell: (u) => u.followers },
     { id: 'repos', header: 'Repos', sortable: true, align: 'right', className: 'font-mono text-muted', cell: (u) => u.repos },
     { id: 'hireable', header: 'Hireable', cell: (u) => <Badge tone={u.hireTone}>{u.hireLabel}</Badge> },
@@ -60,10 +62,13 @@ export function LeadsView({ v }: { v: V }) {
     {
       id: 'actions',
       header: 'Actions',
+      headerAlign: 'right',
       align: 'right',
       className: 'whitespace-nowrap',
+      width: 'w-[236px]',
       cell: (u) => (
-        <span className="inline-flex gap-1">
+        <span className="inline-flex items-center gap-1">
+          <StatusButtons actions={u.statusActions} />
           <IconButton size="sm" title="Copy email" onClick={u.copyEmail}><Icon name="copy" size={14} /></IconButton>
           <IconButton size="sm" title="Open details" onClick={u.openDetail}><Icon name="expand" size={13} /></IconButton>
         </span>
@@ -158,7 +163,7 @@ export function LeadsView({ v }: { v: V }) {
             action: <Button variant="primary" onClick={v.clearFilters}>Clear filters</Button>,
           }}
           stickyHeader
-          minWidthClass="min-w-[1180px]"
+          minWidthClass="min-w-[1420px]"
           maxHeightClass="max-h-[calc(100vh-300px)]"
           paginated
           page={v.leadsPage}

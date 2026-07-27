@@ -20,6 +20,7 @@ import {
   fetchLeadDetail,
   fetchLeads,
   fetchRecipientCount,
+  setLeadStatus as svcSetLeadStatus,
 
   fetchStats,
   listEnrichmentOptions,
@@ -55,6 +56,7 @@ import type {
   City,
   ExportFile,
   Lead,
+  LeadStatus,
   Mode,
   Profile,
   Scope,
@@ -72,6 +74,13 @@ import { AUTH_PATH, HOME_PATH, LOGIN_PATH, SCREEN_PATH, authViewFor, redirectFor
 
 const SRC_TONE: Record<string, Tone> = { readme: 'info', profile: 'accent', commits: 'warning' };
 const CITY_TONE: Record<City['status'], Tone> = { done: 'success', active: 'warning', pending: 'neutral', skipped: 'neutral' };
+// Outreach state of a lead: done = already emailed (retired from the send queue),
+// active = still an open lead the next campaign will contact.
+const LEAD_TONE: Record<LeadStatus, Tone> = { done: 'success', active: 'accent' };
+const LEAD_ACTIONS: { status: LeadStatus; label: string; iconName: string }[] = [
+  { status: 'active', label: 'Active', iconName: 'play' },
+  { status: 'done', label: 'Done', iconName: 'check' },
+];
 const ACCT_STATUS: Record<Account['status'], { label: string; tone: Tone }> = {
   sending: { label: 'Sending', tone: 'warning' },
   ready: { label: 'Ready', tone: 'success' },
@@ -250,6 +259,10 @@ interface AppState {
   fltSource: LeadSource;
   leadsPage: number;
   leadsPageSize: number;
+  // Optimistic per-lead status overrides keyed by login, applied on top of the
+  // fetched status until the next refetch confirms them. Set by the Active/Done
+  // row buttons; reverted on API error.
+  leadOverride: Record<string, LeadStatus>;
   sel: Record<string, boolean>;
   drawer: Lead | null;
   drawerLoading: boolean;
@@ -312,7 +325,7 @@ const DISCOVERY0 = loadDiscoveryView();
 const INITIAL: AppState = {
   collapsed: false, search: '',
   sortKey: 'followers', sortDir: 'desc',
-  fltSource: 'all', leadsPage: 0, leadsPageSize: LEADS_PAGE,
+  fltSource: 'all', leadsPage: 0, leadsPageSize: LEADS_PAGE, leadOverride: {},
   sel: {}, drawer: null, drawerLoading: false, rawOpen: false, palette: false, confirm: false, pwModal: false,
   crawlStatus: 'idle', crawlLines: [], segmentsOpen: false,
   queryMode: 'city', selectedCountry: null,
@@ -331,19 +344,24 @@ const INITIAL: AppState = {
   senders: [],
   subject: 'Hi, {{firstName}}',
   body: `
-  How are you?
-  I am Wei, a full-stack developer from China. I have gained extensive practical experience working as a full-stack engineer for local companies for about 8 years.
-  I also have prior experience working on Upwork.
-  I would like to resume working on remote job platforms like Upwork or Freelancer.com to increase my earnings.
-  Unfortunately, my account was blocked last year.
-  Additionally, developers from Asia tend to have lower hourly rates compared to US-based developers.
-  Therefore, I am looking for someone to help me resume my activities on Upwork.
+I’m Wei, a full stack developer with more than 8 years of experience based in China.
+I worked on Upwork for a long time and built consistent results. Due to a minor policy violation, my account was blocked, and I am now restarting my freelance journey on Upwork and Freelancer.
 
-  I am willing to share 30% of my Upwork earnings and I would like to establish a long-term partnership with you.
-  If you are able to assist, I would like to discuss the details.
-  I would be happy to collaborate and contribute to our collaboration.
+As you may know, Asian accounts often receive lower hourly rates, and many European and American clients tend to prefer hiring local developers. Because of this, I am looking to collaborate with a European partner.
+If you already have an unused Upwork account, I would be grateful if you could lend it to me. If not, you could create a new one for our collaboration.
 
-  I look forward to hearing from you soon to discuss this further.
+How we can work together:
+-I' d like to work on your account on freelance platforms such as Upwork or Freelancer.
+-I would appreciate it if you could respond to client requests for video conferences.
+-Here, all monthly earnings are conveniently and securely deposited into your Payoneer or PayPal account linked to your freelancer account.
+
+You keep 30% of your monthly earnings, and I would appreciate it if you could send the remaining amount to me via PayPal or Payoneer.
+For privacy and security, I am happy to work through a virtual machine or a secondary computer—whichever is more comfortable for you.
+Also, if you have any personal projects or tasks you would like me to handle, please feel free to let me know at any time.
+I look forward to hearing from you.
+
+Kind regards,
+Wei
   `,
   tokenReveal: false, authed: false, authUser: null, profile: emptyProfile(),
   resetEmail: 'operator@ghfinder.io',
@@ -580,6 +598,14 @@ export function useApp() {
   );
   const filteredLeads = leadsRes.data.leads;
   const leadsTotal = leadsRes.data.total;
+
+  // Optimistic lead-status overrides only bridge the gap between a row click and
+  // the refetch that confirms it. Once fresh rows land, server truth wins — so a
+  // status the sender changed on its own (a confirmed send stamps emailed_at) is
+  // never masked by a stale hand-set override.
+  useEffect(() => {
+    if (Object.keys(stateRef.current.leadOverride).length) patch({ leadOverride: {} });
+  }, [leadsRes.data]);
 
   const goTo = (to: string) => (e?: React.MouseEvent) => {
     if (e && (e.metaKey || e.ctrlKey || e.shiftKey || e.altKey || e.button === 1)) return;
@@ -907,10 +933,52 @@ export function useApp() {
     key, label, badge, iconName: key, active: screen === key, go: nav(key), href: SCREEN_PATH[key],
   }));
 
+  // Flip a lead between active and done. The status lives in the backend's
+  // emailed_at stamp — the same field the sender writes on a confirmed send — so
+  // marking done retires the lead from the send queue and active puts it back.
+  // Applied optimistically, reverted if the API call fails.
+  const setLeadStatus = (login: string, status: LeadStatus) => {
+    const prev = stateRef.current.leadOverride[login];
+    update((st) => ({ leadOverride: { ...st.leadOverride, [login]: status } }));
+    svcSetLeadStatus(login, status)
+      .then(() => {
+        toast(
+          status === 'done'
+            ? `Marked ${login} done — excluded from future sends`
+            : `Marked ${login} active — back in the send queue`,
+          'success',
+        );
+        // Re-read the page so the row settles on the persisted value, and refresh
+        // the recipient count on Dashboard/Campaigns — it counts un-emailed leads.
+        leadsRes.refetch();
+        recipRes.refetch();
+      })
+      .catch((e) => {
+        update((st) => {
+          const nx = { ...st.leadOverride };
+          if (prev === undefined) delete nx[login]; else nx[login] = prev;
+          return { leadOverride: nx };
+        });
+        toast(errMsg(e, 'Could not update lead status'), 'danger');
+      });
+  };
+  const leadStatusActions = (login: string, current: LeadStatus) =>
+    LEAD_ACTIONS.map((a) => ({
+      key: a.status,
+      label: a.label,
+      iconName: a.iconName,
+      // The button matching the lead's current status is shown selected + disabled.
+      current: current === a.status,
+      onClick: () => setLeadStatus(login, a.status),
+    }));
+
   const leads = filteredLeads.map((u) => {
     const selected = !!s.sel[u.login];
+    const status = s.leadOverride[u.login] ?? u.status;
     return {
       key: u.login, login: u.login, name: u.name, loc: u.loc, city: u.city,
+      status, statusTone: LEAD_TONE[status],
+      statusActions: leadStatusActions(u.login, status),
       email: u.email, noEmail: !u.email,
       srcTag: u.src, srcTone: (u.src ? SRC_TONE[u.src] : 'neutral') as Tone,
       followers: fmt(u.followers), repos: u.repos, company: u.company || '—',

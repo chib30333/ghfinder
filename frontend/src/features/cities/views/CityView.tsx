@@ -1,6 +1,6 @@
 import { Icon } from '@/lib/icons';
 import { Badge, Button, Card, DataTable, InfoTip, Spinner, StateCard, type Column } from '@/components/ui';
-import { CityStatusButtons } from '@/components/CityStatusButtons';
+import { StatusButtons } from '@/components/StatusButtons';
 import { HINTS } from '@/lib/hints';
 import type { V } from '@/hooks/useApp';
 
@@ -22,7 +22,7 @@ export function CityView({ v }: { v: V }) {
       headerAlign: 'right',
       align: 'right',
       width: 'w-[236px]',
-      cell: (c) => <CityStatusButtons actions={c.statusActions} />,
+      cell: (c) => <StatusButtons actions={c.statusActions} />,
     },
   ];
 

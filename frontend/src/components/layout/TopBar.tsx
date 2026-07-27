@@ -58,7 +58,7 @@ export function TopBar({ v }: { v: V }) {
           {v.acctMenu && (
             <>
               <div onClick={v.closeAcctMenu} className="fixed inset-0 z-30" />
-              <div role="menu" className="absolute top-[42px] right-0 w-60 bg-surface border border-line rounded-10 shadow-menu z-[31] overflow-hidden animate-fade">
+              <div role="menu" className="absolute top-[42px] right-0 w-60 bg-surface border border-line rounded-10 shadow-menu z-[100] overflow-hidden animate-fade">
                 <div className="flex items-center gap-2.5 px-3 py-3 border-b border-line">
                   <Avatar color={v.activeColor} initials={v.activeInit} src={v.activeAvatar} size={34} fontSize={12} />
                   <div className="min-w-0">

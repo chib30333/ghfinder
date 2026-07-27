@@ -1,4 +1,4 @@
-export { fetchLeads, fetchLeadDetail, fetchRecipientCount } from './leads.service';
+export { fetchLeads, fetchLeadDetail, fetchRecipientCount, setLeadStatus } from './leads.service';
 export type { LeadQuery, LeadSortKey, LeadSource, SortDir } from './leads.service';
 export { fetchStats } from './stats.service';
 export { fetchAccounts, launchBrowser, addGmailAccount, openMailbox } from './accounts.service';

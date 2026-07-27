@@ -1,19 +1,20 @@
 import { Icon } from '@/lib/icons';
 import { Button } from '@/components/ui';
 
-export interface CityStatusAction {
+export interface StatusAction {
   key: string;
   label: string;
   iconName: string;
-  // True for the button matching the city's current status: shown selected and
+  // True for the button matching the row's current status: shown selected and
   // disabled, since re-applying the same status is a no-op.
   current: boolean;
   onClick: () => void;
 }
 
-// The Done / Active / Skip control rendered in each city row's actions cell.
-// Sets the city's crawl status directly from the table (Discovery + City view).
-export function CityStatusButtons({ actions }: { actions: CityStatusAction[] }) {
+// The inline status control rendered in a table row's actions cell — Done /
+// Active / Skip for cities, Active / Done for leads. Sets the row's status
+// directly from the table.
+export function StatusButtons({ actions }: { actions: StatusAction[] }) {
   return (
     <div className="inline-flex items-center gap-1 justify-end">
       {actions.map((a) => (
