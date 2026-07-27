@@ -73,6 +73,8 @@ Options:
 | `--all`     | off                       | Process every recipient from `--index` onward |
 | `--accounts LIST` | (auto-discover)     | Comma-separated `/u/N/` indexes to send from  |
 | `--per-account N` | `0` (unlimited)     | Max messages per account this run             |
+| `--no-sweep` | off                      | Skip the bounce prune **and** the block-account exclusion |
+| `--sweep-only` | off                    | Prune bounced addresses and exit (no sending) |
 | `--cdp URL` | `http://127.0.0.1:9222`   | CDP endpoint of the running Chrome            |
 | `--no-launch` | off                     | Don't auto-start Chrome; require it already running |
 | `--chrome PATH` | (auto-detected)       | Path to `chrome.exe` for auto-launch          |
@@ -98,6 +100,23 @@ account, and so on, wrapping around). Each account keeps its own Compose tab.
 > The account indexes (`/u/0/`, `/u/1/`, …) are assigned by Gmail in the order
 > you signed in, and they persist in the profile. Keep the debug Chrome open
 > while the sender runs.
+
+### Bounce & block hygiene (runs by default; `--no-sweep` to skip)
+
+Before composing anything, a `--send` run sweeps each account's own inbox:
+
+- **Bounces** — searches for Mail-Delivery-Subsystem failures and deletes the
+  undeliverable address from the DB so it's never re-fetched.
+- **Blocks** — searches for a recent "Message blocked … has been blocked" notice
+  (Gmail throttling that account's outgoing mail). **Any account with such a
+  notice in the last day is excluded from the whole run's rotation.** The notice
+  lingers in the inbox all day, so every subsequent run that day re-detects it —
+  the account stays excluded for the rest of the day, then rejoins automatically.
+  If *every* account is blocked, the run aborts with a clear message rather than
+  sending from a throttled account.
+
+Pass `--no-sweep` to skip both, or `--sweep-only` to prune bounces and exit
+without sending. Block detection only runs together with `--send`.
 
 ### Rate limiting
 
