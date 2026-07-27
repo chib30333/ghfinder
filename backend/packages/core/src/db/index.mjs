@@ -105,6 +105,14 @@ const stmts = {
   markEmailed: db.prepare(
     `UPDATE users SET emailed_at=? WHERE LOWER(TRIM(email))=LOWER(TRIM(?))`
   ),
+  // Clear the contacted stamp on every row sharing this address, returning the
+  // lead to the `recipients` work list. Inverse of markEmailed.
+  unmarkEmailed: db.prepare(
+    `UPDATE users SET emailed_at=NULL WHERE LOWER(TRIM(email))=LOWER(TRIM(?))`
+  ),
+  // Stamp/clear a single login. Used for leads with no email, where there is no
+  // address to match duplicates on.
+  setEmailedByLogin: db.prepare(`UPDATE users SET emailed_at=? WHERE login=?`),
   // Purge every row with this address — used to drop leads whose email hard-bounced.
   deleteByEmail: db.prepare(`DELETE FROM users WHERE LOWER(TRIM(email))=LOWER(TRIM(?))`),
   upsertUser: db.prepare(`
@@ -229,6 +237,27 @@ export const deleteUser = (login) => stmts.deleteUser.run(login).changes > 0;
 export const markEmailed = (email, at = new Date().toISOString()) =>
   stmts.markEmailed.run(at, String(email ?? '')).changes;
 
+// Un-contact an address: clears emailed_at on every row sharing it, so the lead
+// comes back into `recipients` and can be mailed again. Returns rows cleared.
+export const unmarkEmailed = (email) => stmts.unmarkEmailed.run(String(email ?? '')).changes;
+
+// A lead is 'done' once it carries an emailed_at stamp (the sender writes it on a
+// confirmed Gmail send) and 'active' while it is still an open, mailable lead.
+// Operators flip this by hand from the Leads table — marking a lead done retires
+// it from `recipients`, marking it active puts it back in the queue.
+// Keyed by login, but applied by email when the lead has one, so the duplicate
+// logins a single person can produce across cities all move together.
+export function setLeadStatus(login, status) {
+  const row = db.prepare(`SELECT login, email FROM users WHERE login=?`).get(login);
+  if (!row) return null;
+  const at = status === 'done' ? new Date().toISOString() : null;
+  const email = String(row.email ?? '').trim();
+  const changes = email
+    ? (at ? stmts.markEmailed.run(at, email) : stmts.unmarkEmailed.run(email)).changes
+    : stmts.setEmailedByLogin.run(at, row.login).changes;
+  return { login: row.login, email: email || null, status, emailed_at: at, changes };
+}
+
 // Hard-delete every lead with this address. Used to prune recipients whose email
 // permanently bounced ("Address not found" / NXDOMAIN). Returns rows removed.
 export const deleteByEmail = (email) => stmts.deleteByEmail.run(String(email ?? '')).changes;
@@ -342,7 +371,7 @@ export function listUsers(opts = {}) {
     .prepare(
       `SELECT u.id, u.login, u.name, u.company, u.location, u.email, u.email_source,
               u.followers, u.public_repos, u.hireable, u.telegram, u.discord,
-              u.html_url, u.type, u.fetched_at, u.created_at,
+              u.html_url, u.type, u.fetched_at, u.created_at, u.emailed_at,
               c.city AS source_city, c.state AS source_state
        FROM users u
        LEFT JOIN cities c ON c.id = u.source_city_id

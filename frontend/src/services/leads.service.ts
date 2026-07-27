@@ -1,4 +1,4 @@
-import type { EmailSource, Lead } from '@/types';
+import type { EmailSource, Lead, LeadStatus } from '@/types';
 import { timeAgo } from '@/lib/format';
 import { apiClient, qs } from './api/client';
 
@@ -30,6 +30,9 @@ interface LeadRow {
   discord: string | null;
   fetched_at: string | null;
   source_city: string | null;
+  // ISO timestamp of the last confirmed send to this address; null = never
+  // contacted. Drives the lead's active/done status.
+  emailed_at: string | null;
 }
 interface LeadDetailRow extends LeadRow {
   blog: string | null;
@@ -65,6 +68,8 @@ function mapLead(r: LeadRow, extra?: Pick<LeadDetailRow, 'bio' | 'blog' | 'twitt
     tg: r.telegram != null,
     dc: r.discord != null,
     company: r.company ?? '',
+    status: r.emailed_at ? 'done' : 'active',
+    emailedAt: r.emailed_at ?? null,
     fetched: timeAgo(r.fetched_at),
     bio: extra?.bio ?? '',
     blog: extra?.blog ?? '',
@@ -90,6 +95,19 @@ export async function fetchLeads(q: LeadQuery = {}): Promise<{ leads: Lead[]; to
 export async function fetchLeadDetail(login: string): Promise<Lead> {
   const r = await apiClient<LeadDetailRow>(`/api/leads/${encodeURIComponent(login)}`);
   return mapLead(r, { bio: r.bio, blog: r.blog, twitter: r.twitter });
+}
+
+// Flip a lead's outreach status. 'done' stamps it as contacted so it drops out of
+// the send queue; 'active' clears the stamp and puts it back. Applied server-side
+// by email address, so every duplicate login for the same person moves with it.
+export function setLeadStatus(
+  login: string,
+  status: LeadStatus,
+): Promise<{ updated: boolean; login: string; status: LeadStatus; emailed_at: string | null }> {
+  return apiClient(`/api/leads/${encodeURIComponent(login)}/status`, {
+    method: 'POST',
+    body: JSON.stringify({ status }),
+  });
 }
 
 export async function fetchRecipientCount(): Promise<number> {

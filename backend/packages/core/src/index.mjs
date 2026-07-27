@@ -14,6 +14,8 @@ export {
   upsertUser,
   deleteUser,
   markEmailed,
+  unmarkEmailed,
+  setLeadStatus,
   deleteByEmail,
   isValidEmail,
   looksLikeOrg,
