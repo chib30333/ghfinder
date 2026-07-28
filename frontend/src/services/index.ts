@@ -1,6 +1,8 @@
 export { fetchLeads, fetchLeadDetail, fetchRecipientCount, setLeadStatus } from './leads.service';
 export type { LeadQuery, LeadSortKey, LeadSource, SortDir } from './leads.service';
 export { fetchStats } from './stats.service';
+export { fetchRateLimit, rateLimitReason, EMPTY_RATE_LIMIT } from './rate-limit.service';
+export type { RateLimit, RateWindow } from './rate-limit.service';
 export { fetchAccounts, launchBrowser, addGmailAccount, openMailbox } from './accounts.service';
 export type { AccountsResult } from './accounts.service';
 export { fetchCities, fetchCrawledCities, fetchCitiesByCountry, loadCities, skipCity, setCityStatus, listEnrichmentOptions } from './cities.service';

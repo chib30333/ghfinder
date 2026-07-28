@@ -26,6 +26,8 @@ export { Avatar } from './avatar';
 export type { AvatarProps } from './avatar';
 export { ProgressBar } from './progress-bar';
 export type { ProgressBarProps } from './progress-bar';
+export { Countdown } from './countdown';
+export type { CountdownProps } from './countdown';
 export { Segmented } from './segmented';
 export type { SegmentedProps, SegmentedOption } from './segmented';
 export { FieldError } from './field-error';

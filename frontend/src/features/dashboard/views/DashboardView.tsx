@@ -1,5 +1,5 @@
 import { Icon } from '@/lib/icons';
-import { Button, Card, Dot, IconBadge, InfoTip, ProgressBar, StateCard, Tooltip } from '@/components/ui';
+import { Button, Card, Countdown, Dot, IconBadge, InfoTip, ProgressBar, StateCard, Tooltip } from '@/components/ui';
 import { HINTS } from '@/lib/hints';
 import type { V } from '@/hooks/useApp';
 
@@ -85,9 +85,13 @@ export function DashboardView({ v }: { v: V }) {
         </StatCard>
 
         <StatCard label="GitHub API remaining" iconName="api" hint={HINTS.statApi}>
-          <div className="font-mono text-[28px] font-semibold mt-2 tracking-[-0.02em]">{v.apiRemain}<span className="text-muted text-[14px]">/5,000</span></div>
+          <div className="font-mono text-[28px] font-semibold mt-2 tracking-[-0.02em]">{v.apiRemain}<span className="text-muted text-[14px]">/{v.apiLimit}</span></div>
           <ProgressBar pct={v.apiPct} tone={v.apiTone} className="mt-2.5" heightClass="h-1.5" />
-          <div className="text-muted text-[11px] mt-1.5">resets in {v.apiReset}</div>
+          <div className="text-muted text-[11px] mt-1.5">
+            {v.apiProblem ? <span className="text-danger">{v.apiProblem}</span>
+              : v.apiResetAt ? <>resets in <Countdown to={v.apiResetAt} precise /></>
+                : 'reading…'}
+          </div>
         </StatCard>
       </div>
 
