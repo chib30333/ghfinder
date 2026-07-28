@@ -27,6 +27,7 @@ import {
   Play,
   Plus,
   Radar,
+  RefreshCw,
   Search,
   Send,
   Settings,
@@ -76,6 +77,7 @@ export const ICONS: Record<string, LucideIcon> = {
   shield: Shield,
   file: File,
   alert: AlertTriangle,
+  refresh: RefreshCw,
   tg: Send,
   dc: MessageCircle,
 };

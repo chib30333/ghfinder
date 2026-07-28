@@ -52,6 +52,18 @@ export class GitHub {
     }
   }
 
+  // Snapshot every rate-limit window (core, search, graphql, …). GitHub does not
+  // charge this endpoint against the budget it reports, so it is safe to poll.
+  // Deliberately bypasses getJson(): its ETag cache would answer a 304 with a
+  // stale snapshot, which is exactly the number we must never show.
+  async getRateLimit() {
+    const res = await fetch(`${config.apiBase}/rate_limit`, { headers: this.headers() });
+    if (res.status === 401) return { ok: false, reason: 'bad_token' };
+    if (!res.ok) return { ok: false, reason: `http_${res.status}` };
+    const body = await res.json();
+    return { ok: true, resources: body?.resources ?? {} };
+  }
+
   async getJson(path, { floor = 2, retries = 6 } = {}) {
     const url = path.startsWith('http') ? path : `${config.apiBase}${path}`;
     const cached = readCache(url);

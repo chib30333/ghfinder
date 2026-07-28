@@ -23,6 +23,10 @@ import {
   setLeadStatus as svcSetLeadStatus,
 
   fetchStats,
+  fetchRateLimit,
+  rateLimitReason,
+  EMPTY_RATE_LIMIT,
+  type RateWindow,
   listEnrichmentOptions,
   loadSession,
   loadProfile,
@@ -109,6 +113,9 @@ const EMPTY_STATS: Stats = {
 };
 const LEADS_PAGE = 50;
 const SAFE_DAILY_CAP = 15;
+// How often the top-bar meter re-reads the GitHub budget. Cheap: GitHub does not
+// charge /rate_limit against the window it reports.
+const RATE_POLL_MS = 60_000;
 const compact = (n: number) => (n >= 1000 ? `${Math.round(n / 1000)}k` : String(n));
 const errMsg = (e: unknown, fallback: string) => (e instanceof Error ? e.message : fallback);
 
@@ -467,6 +474,12 @@ export function useApp() {
 
   const statsRes = useResource(fetchStats, [], EMPTY_STATS);
   const stats = statsRes.data;
+
+  const rateRes = useResource(fetchRateLimit, [], EMPTY_RATE_LIMIT);
+  useEffect(() => {
+    const t = setInterval(rateRes.refetch, RATE_POLL_MS);
+    return () => clearInterval(t);
+  }, [rateRes.refetch]);
 
   const accountsRes = useResource(() => fetchAccounts(), [], { cdp: 'up' as const, endpoint: '', accounts: [] as Account[] });
   const accounts = accountsRes.data.accounts;
@@ -1162,9 +1175,17 @@ export function useApp() {
     }
     : null;
 
-  const apiRemain = 1420;
-  const apiPct = Math.round((apiRemain / 5000) * 100);
-  const apiTone: Tone = apiPct > 40 ? 'success' : apiPct > 15 ? 'warning' : 'danger';
+  // The top-bar meter reads the primary (core) window; search has its own much
+  // smaller budget, surfaced alongside it in the meter popover.
+  const rate = rateRes.data;
+  const apiCore = rate.core;
+  const apiReady = rate.ok && !!apiCore;
+  const apiLimit = apiCore?.limit ?? 0;
+  const apiRemain = apiCore?.remaining ?? 0;
+  const apiPct = apiLimit ? Math.round((apiRemain / apiLimit) * 100) : 0;
+  // An unknown budget must not read as an exhausted one, so a meter with no
+  // snapshot yet stays neutral instead of alarming in red.
+  const apiTone: Tone = !apiReady ? 'neutral' : apiPct > 40 ? 'success' : apiPct > 15 ? 'warning' : 'danger';
 
 
   const crawlBars = deriveCrawlBars(cityList).map((c, i) => ({ ...c, key: i }));
@@ -1440,7 +1461,38 @@ export function useApp() {
 
     openPalette: () => patch({ palette: true }),
     goAccounts: nav('accounts'), goDiscovery: nav('discovery'), goCampaigns: nav('campaigns'),
-    apiRemain: fmt(apiRemain), apiPct, apiTone, apiReset: '34m',
+    apiRemain: apiReady ? fmt(apiRemain) : '—',
+    apiLimit: apiReady ? fmt(apiLimit) : '—',
+    apiPct,
+    apiTone,
+    apiResetAt: apiCore?.reset ?? 0,
+    apiReady,
+    apiLoading: rateRes.loading,
+    // A dead API server and a live one reporting a bad token are different
+    // problems; keep them distinguishable in the meter's popover.
+    apiProblem: rateRes.error ?? (rate.ok ? null : rate.checkedAt ? rateLimitReason(rate.reason) : null),
+    apiWindows: [
+      { key: 'core', label: 'Core', hint: 'Profile, repo, and commit reads', w: rate.core },
+      { key: 'search', label: 'Search', hint: 'City/date search queries', w: rate.search },
+      { key: 'graphql', label: 'GraphQL', hint: 'Unused by ghfinder today', w: rate.graphql },
+    ].filter((r): r is typeof r & { w: RateWindow } => !!r.w)
+      .map((r) => ({
+        key: r.key,
+        label: r.label,
+        hint: r.hint,
+        remain: fmt(r.w.remaining),
+        limit: fmt(r.w.limit),
+        used: fmt(r.w.used),
+        resetAt: r.w.reset,
+        pct: r.w.limit ? Math.round((r.w.remaining / r.w.limit) * 100) : 0,
+        tone: (r.w.limit && r.w.remaining / r.w.limit > 0.4
+          ? 'success'
+          : r.w.limit && r.w.remaining / r.w.limit > 0.15
+            ? 'warning'
+            : 'danger') as Tone,
+      })),
+    apiCheckedAt: rate.checkedAt,
+    refreshRateLimit: rateRes.refetch,
 
     activeInit: initials(s.profile.name || s.profile.email || s.authUser?.name || ''),
     activeColor: hue(s.profile.email || s.authUser?.email || ''),
