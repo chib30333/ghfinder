@@ -12,8 +12,9 @@ export interface StatusAction {
 }
 
 // The inline status control rendered in a table row's actions cell — Done /
-// Active / Skip for cities, Active / Done for leads. Sets the row's status
-// directly from the table.
+// Active / Skip for cities and discovery. Sets the row's status directly from
+// the table. (Leads use a two-state toggle instead, since they are only ever
+// active or done.)
 export function StatusButtons({ actions }: { actions: StatusAction[] }) {
   return (
     <div className="inline-flex items-center gap-1 justify-end">
