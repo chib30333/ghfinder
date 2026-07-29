@@ -81,10 +81,6 @@ const CITY_TONE: Record<City['status'], Tone> = { done: 'success', active: 'warn
 // Outreach state of a lead: done = already emailed (retired from the send queue),
 // active = still an open lead the next campaign will contact.
 const LEAD_TONE: Record<LeadStatus, Tone> = { done: 'success', active: 'accent' };
-const LEAD_ACTIONS: { status: LeadStatus; label: string; iconName: string }[] = [
-  { status: 'active', label: 'Active', iconName: 'play' },
-  { status: 'done', label: 'Done', iconName: 'check' },
-];
 const ACCT_STATUS: Record<Account['status'], { label: string; tone: Tone }> = {
   sending: { label: 'Sending', tone: 'warning' },
   ready: { label: 'Ready', tone: 'success' },
@@ -267,8 +263,8 @@ interface AppState {
   leadsPage: number;
   leadsPageSize: number;
   // Optimistic per-lead status overrides keyed by login, applied on top of the
-  // fetched status until the next refetch confirms them. Set by the Active/Done
-  // row buttons; reverted on API error.
+  // fetched status until the next refetch confirms them. Set by the row's
+  // done/active toggle; reverted on API error.
   leadOverride: Record<string, LeadStatus>;
   sel: Record<string, boolean>;
   drawer: Lead | null;
@@ -366,9 +362,6 @@ You keep 30% of your monthly earnings, and I would appreciate it if you could se
 For privacy and security, I am happy to work through a virtual machine or a secondary computer—whichever is more comfortable for you.
 Also, if you have any personal projects or tasks you would like me to handle, please feel free to let me know at any time.
 I look forward to hearing from you.
-
-Kind regards,
-Wei
   `,
   tokenReveal: false, authed: false, authUser: null, profile: emptyProfile(),
   resetEmail: 'operator@ghfinder.io',
@@ -975,29 +968,20 @@ export function useApp() {
         toast(errMsg(e, 'Could not update lead status'), 'danger');
       });
   };
-  const leadStatusActions = (login: string, current: LeadStatus) =>
-    LEAD_ACTIONS.map((a) => ({
-      key: a.status,
-      label: a.label,
-      iconName: a.iconName,
-      // The button matching the lead's current status is shown selected + disabled.
-      current: current === a.status,
-      onClick: () => setLeadStatus(login, a.status),
-    }));
-
   const leads = filteredLeads.map((u) => {
     const selected = !!s.sel[u.login];
     const status = s.leadOverride[u.login] ?? u.status;
     return {
-      key: u.login, login: u.login, name: u.name, loc: u.loc, city: u.city,
+      key: u.login, login: u.login, name: u.name, loc: u.loc,
       status, statusTone: LEAD_TONE[status],
-      statusActions: leadStatusActions(u.login, status),
+      // The row's status control is a two-state toggle: on = done, off = active.
+      statusDone: status === 'done',
+      toggleStatus: () => setLeadStatus(u.login, status === 'done' ? 'active' : 'done'),
       email: u.email, noEmail: !u.email,
       srcTag: u.src, srcTone: (u.src ? SRC_TONE[u.src] : 'neutral') as Tone,
       followers: fmt(u.followers), repos: u.repos, company: u.company || '—',
       avColor: hue(u.login), avInit: initials(u.name),
-      hireLabel: u.hireable ? 'Yes' : 'No', hireTone: (u.hireable ? 'success' : 'neutral') as Tone,
-      tg: u.tg, dc: u.dc, selected,
+      selected,
       toggle: () => update((st) => ({ sel: { ...st.sel, [u.login]: !st.sel[u.login] } })),
       copyEmail: (e: React.MouseEvent) => {
         e.preventDefault(); e.stopPropagation();
@@ -1013,7 +997,7 @@ export function useApp() {
           .then((full) => setState((st) => (st.drawer && st.drawer.login === full.login ? { ...st, drawer: full, drawerLoading: false } : st)))
           .catch(() => setState((st) => (st.drawer && st.drawer.login === u.login ? { ...st, drawerLoading: false } : st)));
       },
-      openGh: (e: React.MouseEvent) => { e.preventDefault(); toast('Opening github.com/' + u.login, 'info'); },
+      ghUrl: 'https://github.com/' + u.login,
     };
   });
   const selCount = Object.values(s.sel).filter(Boolean).length;

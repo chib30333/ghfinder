@@ -1,8 +1,7 @@
 import { Icon } from '@/lib/icons';
 import { cn } from '@/lib/utils';
-import { Avatar, Badge, Button, Card, DataTable, IconButton, InfoTip, SearchBox, type Column } from '@/components/ui';
+import { Avatar, Badge, Button, Card, DataTable, IconButton, InfoTip, SearchBox, Toggle, type Column } from '@/components/ui';
 import { HINTS } from '@/lib/hints';
-import { StatusButtons } from '@/components/StatusButtons';
 import type { V } from '@/hooks/useApp';
 
 type LeadRow = V['leads'][number];
@@ -24,7 +23,16 @@ export function LeadsView({ v }: { v: V }) {
       cell: (u) => (
         <span className="flex items-center gap-2.5">
           <Avatar color={u.avColor} initials={u.avInit} size={26} />
-          <a href="#" onClick={u.openGh} className="font-mono font-medium">{u.login}</a>
+          <a
+            href={u.ghUrl}
+            target="_blank"
+            rel="noopener noreferrer"
+            onClick={(e) => e.stopPropagation()}
+            title={u.ghUrl}
+            className="font-mono font-medium"
+          >
+            {u.login}
+          </a>
         </span>
       ),
     },
@@ -46,29 +54,22 @@ export function LeadsView({ v }: { v: V }) {
     { id: 'status', header: 'Status', cell: (u) => <Badge tone={u.statusTone} dot>{u.status}</Badge> },
     { id: 'followers', header: 'Followers', sortable: true, align: 'right', className: 'font-mono', cell: (u) => u.followers },
     { id: 'repos', header: 'Repos', sortable: true, align: 'right', className: 'font-mono text-muted', cell: (u) => u.repos },
-    { id: 'hireable', header: 'Hireable', cell: (u) => <Badge tone={u.hireTone}>{u.hireLabel}</Badge> },
-    {
-      id: 'social',
-      header: 'Social',
-      cell: (u) => (
-        <span className="flex gap-1.5">
-          <span className={u.tg ? 'text-fg' : 'text-line'}><Icon name="tg" size={15} /></span>
-          <span className={u.dc ? 'text-fg' : 'text-line'}><Icon name="dc" size={15} /></span>
-        </span>
-      ),
-    },
     { id: 'company', header: 'Company', className: 'text-muted', cell: (u) => <Trunc value={u.company} width="max-w-[150px]" /> },
-    { id: 'city', header: 'Source city', className: 'text-muted', cell: (u) => <Trunc value={u.city} width="max-w-[110px]" /> },
     {
       id: 'actions',
       header: 'Actions',
       headerAlign: 'right',
       align: 'right',
       className: 'whitespace-nowrap',
-      width: 'w-[236px]',
+      width: 'w-[140px]',
       cell: (u) => (
-        <span className="inline-flex items-center gap-1">
-          <StatusButtons actions={u.statusActions} />
+        <span className="inline-flex items-center gap-1.5">
+          {/* On = done (contacted, out of the send queue); off = active. */}
+          <Toggle
+            checked={u.statusDone}
+            onClick={(e) => { e.stopPropagation(); u.toggleStatus(); }}
+            aria-label={u.statusDone ? `Mark ${u.login} active` : `Mark ${u.login} done`}
+          />
           <IconButton size="sm" title="Copy email" onClick={u.copyEmail}><Icon name="copy" size={14} /></IconButton>
           <IconButton size="sm" title="Open details" onClick={u.openDetail}><Icon name="expand" size={13} /></IconButton>
         </span>
