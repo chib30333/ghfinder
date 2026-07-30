@@ -1,6 +1,7 @@
 import { GitHub } from '../github/client.mjs';
 import { childWindows, canSplit } from './dates.mjs';
 import { extractSocialLinks } from './social.mjs';
+import { locationMatches } from './location.mjs';
 import {
   nextCity,
   setCityStatus,
@@ -137,6 +138,19 @@ async function fetchProfiles(gh, items, city, ctl) {
     // than a person — we only cold-email individuals, and {{firstName}} on an org
     // name renders a brand word ("Hi, TaylorMade").
     if (looksLikeOrg(full.name)) continue;
+    // GitHub's `location:` qualifier is a fuzzy token match, not a geocoded
+    // lookup: location:"Arab" (Arab, AL) also returns everyone in "Dubai, United
+    // Arab Emirates", and location:"Houston" (Houston, AK) returns Houston, TX.
+    // The profile we just fetched carries the real location, so re-check it here
+    // — before the readme/repo/commit enrichment, so a wrong-place hit costs no
+    // extra API calls. Hits rejected for naming another US state are not lost;
+    // they are harvested when their own city row comes up in the work list.
+    const geo = locationMatches(full.location, city.city, city.state, { strict: config.locationStrict });
+    if (!geo.ok) {
+      const tag = geo.reason.split(':')[0];
+      ctl.rejects.set(tag, (ctl.rejects.get(tag) ?? 0) + 1);
+      continue;
+    }
 
     const row = toRow(full, city.id);
 
@@ -212,7 +226,9 @@ async function processSegment(gh, city, seg, ctl) {
 
 export async function run({ limit = Infinity, maxProfiles = 0, states = null, gh: injectedGh } = {}) {
   const gh = injectedGh ?? new GitHub();
-  const ctl = { stopping: false, added: 0, maxProfiles };
+  // `rejects` tallies why hits were thrown away by the location check, reset per
+  // city so the summary line says what a city's search actually dragged in.
+  const ctl = { stopping: false, added: 0, maxProfiles, rejects: new Map() };
   const scope = Array.isArray(states) && states.length ? states : null;
   process.on('SIGINT', () => {
     if (ctl.stopping) process.exit(1);
@@ -228,6 +244,7 @@ export async function run({ limit = Infinity, maxProfiles = 0, states = null, gh
       break;
     }
     setCityStatus(city.id, 'active');
+    ctl.rejects.clear();
     console.error(`[city] crawling ${city.city}, ${city.state}`);
 
     insertSegment({
@@ -264,8 +281,11 @@ export async function run({ limit = Infinity, maxProfiles = 0, states = null, gh
 
     setCityStatus(city.id, 'done');
     processedCities++;
+    const rejected = [...ctl.rejects.values()].reduce((a, b) => a + b, 0);
+    const why = [...ctl.rejects].sort((a, b) => b[1] - a[1]).map(([k, n]) => `${k}=${n}`).join(' ');
     console.error(
       `[city] ${city.city}, ${city.state} — new_profiles=${cityAdded}` +
+        (rejected ? ` wrong_location=${rejected} (${why})` : '') +
         (splits ? ` splits=${splits}` : '') +
         (capped ? ` capped_days=${capped}` : '') +
         ` (api_calls=${gh.requests})`

@@ -72,5 +72,10 @@ export const config = {
   emailRepoScan: Number(process.env.GHFINDER_EMAIL_REPOS ?? 5),
   readmeEmail: (process.env.GHFINDER_README_EMAIL ?? '1') !== '0',
   socialLinks: (process.env.GHFINDER_SOCIAL_LINKS ?? '1') !== '0',
+  // Reject a search hit whose profile location doesn't confirm the city being
+  // crawled. Strict (the default) also rejects a bare, unqualified city name —
+  // "Indian" or "Central" with no state — which is where most of the junk is.
+  // Set GHFINDER_LOCATION_STRICT=0 to keep those unconfirmed hits.
+  locationStrict: (process.env.GHFINDER_LOCATION_STRICT ?? '1') !== '0',
   usersPerFile: Math.max(1, Number(process.env.GHFINDER_USERS_PER_FILE ?? 2000) || 2000),
 };
