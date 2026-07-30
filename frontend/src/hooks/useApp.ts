@@ -350,7 +350,7 @@ const INITIAL: AppState = {
 I’m Wei, a full stack developer with more than 8 years of experience based in China.
 I worked on Upwork for a long time and built consistent results. Due to a minor policy violation, my account was blocked, and I am now restarting my freelance journey on Upwork and Freelancer.
 
-As you may know, Asian accounts often receive lower hourly rates, and many European and American clients tend to prefer hiring local developers. Because of this, I am looking to collaborate with a European partner.
+As you may know, Asian accounts often receive lower hourly rates, and many European and American clients tend to prefer hiring local developers. Because of this, I am looking to collaborate with a American partner.
 If you already have an unused Upwork account, I would be grateful if you could lend it to me. If not, you could create a new one for our collaboration.
 
 How we can work together:
