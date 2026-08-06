@@ -11,6 +11,7 @@ import campaignsRoutes from './routes/campaigns.mjs';
 import accountsRoutes from './routes/accounts.mjs';
 import exportsRoutes from './routes/exports.mjs';
 import rateLimitRoutes from './routes/rate-limit.mjs';
+import settingsRoutes from './routes/settings.mjs';
 
 const HOST = process.env.GHFINDER_API_HOST || '127.0.0.1';
 const PORT = Number(process.env.GHFINDER_API_PORT || 8787);
@@ -34,6 +35,7 @@ for (const plugin of [
   accountsRoutes,
   exportsRoutes,
   rateLimitRoutes,
+  settingsRoutes,
 ]) {
   await app.register(plugin, { prefix: '/api' });
 }

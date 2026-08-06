@@ -27,6 +27,8 @@ export {
 export type { SendTemplate, StartSendOpts } from './campaigns.service';
 export { fetchExports } from './exports.service';
 export { deriveCrawlBars, deriveActivity } from './dashboard.service';
+export { fetchSettings, EMPTY_RUNTIME_SETTINGS } from './settings.service';
+export type { RuntimeSettings } from './settings.service';
 export { ApiError } from './api/client';
 export {
   signIn,
