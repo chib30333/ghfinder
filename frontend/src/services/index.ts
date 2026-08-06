@@ -6,7 +6,7 @@ export type { RateLimit, RateWindow } from './rate-limit.service';
 export { fetchAccounts, launchBrowser, addGmailAccount, openMailbox } from './accounts.service';
 export type { AccountsResult } from './accounts.service';
 export { fetchCities, fetchCrawledCities, fetchCitiesByCountry, loadCities, skipCity, setCityStatus, listEnrichmentOptions } from './cities.service';
-export type { CityStatus } from './cities.service';
+export type { CityStatus, CitySortKey, CitySortDir } from './cities.service';
 export type { LoadCitiesResult, CountryCities } from './cities.service';
 export { fetchCountries, loadCountryCities, loadAllCountryCities } from './countries.service';
 export type { Country, Region, CountriesResponse, LoadCountryResult, QueryMode } from './countries.service';

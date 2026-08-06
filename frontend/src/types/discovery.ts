@@ -7,6 +7,7 @@ export interface City {
   status: 'done' | 'active' | 'pending' | 'skipped';
   found: number;
   updated: string;
+  updatedAt: string | null;
 }
 
 export interface CrawlBar {

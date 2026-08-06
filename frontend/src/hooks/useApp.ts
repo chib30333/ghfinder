@@ -48,7 +48,7 @@ import {
   fetchCampaignSendStatus,
   CAMPAIGN_STREAM_URL,
 } from '@/services';
-import type { JobLine, JobStatus, LeadSortKey, LeadSource, CountriesResponse, QueryMode, CityStatus } from '@/services';
+import type { JobLine, JobStatus, LeadSortKey, LeadSource, CountriesResponse, QueryMode, CityStatus, CitySortKey, CitySortDir } from '@/services';
 import { fmt } from '@/lib/format';
 import { hue, initials } from '@/lib/avatar';
 import { copyToClipboard } from '@/lib/utils';
@@ -283,12 +283,16 @@ interface AppState {
   cityViewPageSize: number;
   cityViewSearch: string;
   cityViewQuery: string;
+  cityViewSortKey: CitySortKey;
+  cityViewSortDir: CitySortDir;
   cityViewLoadingAll: boolean;
   discoveryCountry: string | null;
   discoveryPage: number;
   discoveryPageSize: number;
   discoverySearch: string;
   discoveryQuery: string;
+  discoverySortKey: CitySortKey;
+  discoverySortDir: CitySortDir;
   recentCities: string[];
   loadingCountry: boolean;
   searchingCountry: boolean;
@@ -335,12 +339,13 @@ const INITIAL: AppState = {
   // City-view browse of a country's full city list — its own selection, paging,
   // and search, independent of the Discovery work-list view below.
   cityViewCode: null, cityViewPage: 0, cityViewPageSize: 100,
-  cityViewSearch: '', cityViewQuery: '', cityViewLoadingAll: false,
+  cityViewSearch: '', cityViewQuery: '', cityViewSortKey: 'city', cityViewSortDir: 'asc', cityViewLoadingAll: false,
   // Restore the persisted Discovery country view so a reload keeps showing the
   // loaded country (search box and fetch both seed from the committed query).
   discoveryCountry: DISCOVERY0.country,
   discoveryPage: DISCOVERY0.page, discoveryPageSize: DISCOVERY0.pageSize,
   discoverySearch: DISCOVERY0.query, discoveryQuery: DISCOVERY0.query,
+  discoverySortKey: 'city', discoverySortDir: 'asc',
   recentCities: loadRecentCities(),
   loadingCountry: false, searchingCountry: false, loadingCities: false, cityOverride: {},
   dailyCap: SAFE_DAILY_CAP, enrich: [true, true, true, true], reposToScan: 5,
@@ -518,9 +523,10 @@ export function useApp() {
           limit: s.discoveryPageSize,
           offset: s.discoveryPage * s.discoveryPageSize,
           search: s.discoveryQuery,
+          sort: { key: s.discoverySortKey, dir: s.discoverySortDir },
         })
         : Promise.resolve({ cities: [] as City[], total: 0 }),
-    [s.discoveryCountry, s.discoveryPage, s.discoveryPageSize, s.discoveryQuery],
+    [s.discoveryCountry, s.discoveryPage, s.discoveryPageSize, s.discoveryQuery, s.discoverySortKey, s.discoverySortDir],
     { cities: [] as City[], total: 0 },
   );
 
@@ -564,9 +570,10 @@ export function useApp() {
           limit: s.cityViewPageSize,
           offset: s.cityViewPage * s.cityViewPageSize,
           search: s.cityViewQuery,
+          sort: { key: s.cityViewSortKey, dir: s.cityViewSortDir },
         })
         : Promise.resolve({ cities: [] as City[], total: 0 }),
-    [cityViewCountryName, s.cityViewPage, s.cityViewPageSize, s.cityViewQuery],
+    [cityViewCountryName, s.cityViewPage, s.cityViewPageSize, s.cityViewQuery, s.cityViewSortKey, s.cityViewSortDir],
     { cities: [] as City[], total: 0 },
   );
 
@@ -1202,9 +1209,34 @@ export function useApp() {
   const setCityStatus = (id: number, cityName: string, status: CityStatus) => {
     const prev = stateRef.current.cityOverride[id];
     if ((prev ?? null) === status) return;
-    update((st) => ({ cityOverride: { ...st.cityOverride, [id]: status } }));
+    update((st) => {
+      const cityOverride = { ...st.cityOverride };
+      if (status === 'active') {
+        // The backend permits one active city. Mirror that handoff immediately
+        // in every loaded table so an old active badge does not remain visible
+        // while the refreshed server data is arriving.
+        const loadedCities = [
+          ...cityList,
+          ...countryCitiesRes.data.cities,
+          ...cityViewRes.data.cities,
+        ];
+        for (const city of loadedCities) {
+          if (city.id !== id && (cityOverride[city.id] ?? city.status) === 'active') {
+            cityOverride[city.id] = 'pending';
+          }
+        }
+      }
+      cityOverride[id] = status;
+      return { cityOverride };
+    });
     svcSetCityStatus(id, status)
       .then(() => {
+        // Refresh each city surface because activating one row also changes the
+        // previous active row on the server.
+        citiesRes.refetch();
+        countryCitiesRes.refetch();
+        cityViewRes.refetch();
+        statsRes.refetch();
         const msg =
           status === 'skipped' ? `Skipped ${cityName} — crawler moves to the next city`
             : status === 'done' ? `Marked ${cityName} done`
@@ -1577,6 +1609,13 @@ export function useApp() {
         setSearch: commitDiscoverySearch,
         query: s.discoveryQuery,
         loading: countryCitiesRes.loading,
+        sort: { columnId: s.discoverySortKey, dir: s.discoverySortDir },
+        setSort: (columnId: string) => update((st) => ({
+          discoverySortKey: columnId as CitySortKey,
+          discoverySortDir:
+            st.discoverySortKey === columnId && st.discoverySortDir === 'asc' ? 'desc' : 'asc',
+          discoveryPage: 0,
+        })),
       }
       : null,
 
@@ -1613,6 +1652,13 @@ export function useApp() {
       search: s.cityViewSearch,
       setSearch: commitCityViewSearch,
       query: s.cityViewQuery,
+      sort: { columnId: s.cityViewSortKey, dir: s.cityViewSortDir },
+      setSort: (columnId: string) => update((st) => ({
+        cityViewSortKey: columnId as CitySortKey,
+        cityViewSortDir:
+          st.cityViewSortKey === columnId && st.cityViewSortDir === 'asc' ? 'desc' : 'asc',
+        cityViewPage: 0,
+      })),
       // Only a genuine first/empty load shows the full-card spinner; page/search
       // refetches keep the prior rows mounted and show a small header spinner.
       loading: cityViewRes.loading && cityViewRes.data.cities.length === 0,

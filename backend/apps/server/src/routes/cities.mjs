@@ -17,6 +17,8 @@ export default async function citiesRoutes(fastify) {
       status: q.status,
       search: q.search,
       ...(states && states.length ? { states } : { state: q.state || q.country }),
+      sort: q.sort,
+      order: q.order,
       limit: q.limit,
       offset: q.offset,
     });

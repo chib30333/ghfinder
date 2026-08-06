@@ -13,9 +13,9 @@ export function DiscoveryView({ v }: { v: V }) {
   const columns: Column<CityRow>[] = [
     { id: 'city', header: 'City', sortable: true, sortValue: (c) => c.city, className: 'font-medium', cell: (c) => c.city },
     { id: 'state', header: 'State', sortable: true, sortValue: (c) => c.state, className: 'font-mono text-muted', cell: (c) => c.state },
-    { id: 'status', header: 'Status', cell: (c) => <Badge tone={c.statusTone} dot>{c.status}</Badge> },
+    { id: 'status', header: 'Status', sortable: true, sortValue: (c) => c.status, cell: (c) => <Badge tone={c.statusTone} dot>{c.status}</Badge> },
     { id: 'found', header: 'Leads', sortable: true, sortValue: (c) => c.foundRaw, align: 'right', className: 'font-mono', cell: (c) => c.found },
-    { id: 'updated', header: 'Updated', align: 'right', className: 'text-muted text-[12px]', cell: (c) => c.updated },
+    { id: 'updated', header: 'Updated', sortable: true, sortValue: (c) => c.updatedAt ?? '', align: 'right', className: 'text-muted text-[12px]', cell: (c) => c.updated },
     {
       id: 'actions',
       header: 'Status controls',
@@ -116,6 +116,8 @@ export function DiscoveryView({ v }: { v: V }) {
                   totalRows: paged.total,
                   onPageChange: paged.setPage,
                   onPageSizeChange: paged.setPageSize,
+                  sort: paged.sort,
+                  onSortChange: paged.setSort,
                 }
               : {})}
             minWidthClass="min-w-[720px]"
