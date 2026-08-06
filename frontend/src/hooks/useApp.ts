@@ -26,6 +26,8 @@ import {
   fetchRateLimit,
   rateLimitReason,
   EMPTY_RATE_LIMIT,
+  fetchSettings,
+  EMPTY_RUNTIME_SETTINGS,
   type RateWindow,
   listEnrichmentOptions,
   loadSession,
@@ -307,7 +309,6 @@ interface AppState {
   senders: boolean[];
   subject: string;
   body: string;
-  tokenReveal: boolean;
   authed: boolean;
   authUser: AuthUser | null;
   profile: Profile;
@@ -368,7 +369,7 @@ For privacy and security, I am happy to work through a virtual machine or a seco
 Also, if you have any personal projects or tasks you would like me to handle, please feel free to let me know at any time.
 I look forward to hearing from you.
   `,
-  tokenReveal: false, authed: false, authUser: null, profile: emptyProfile(),
+  authed: false, authUser: null, profile: emptyProfile(),
   resetEmail: 'operator@ghfinder.io',
   acctMenu: false, send: null, sentDaily: loadSentDaily(), sendProgress: loadSendProgress(), mobileNav: false,
   cdp: 'up', mode: 'draft', scope: 'all', startIndex: 0, count: 500,
@@ -478,6 +479,8 @@ export function useApp() {
     const t = setInterval(rateRes.refetch, RATE_POLL_MS);
     return () => clearInterval(t);
   }, [rateRes.refetch]);
+
+  const settingsRes = useResource(fetchSettings, [], EMPTY_RUNTIME_SETTINGS);
 
   const accountsRes = useResource(() => fetchAccounts(), [], { cdp: 'up' as const, endpoint: '', accounts: [] as Account[] });
   const accounts = accountsRes.data.accounts;
@@ -1782,8 +1785,10 @@ export function useApp() {
     exportsError: exportsRes.error, retryExports: exportsRes.refetch,
     exportsEmpty: !exportsRes.loading && !exportsRes.error && exportsRes.data.length === 0,
 
-    tokenMask: s.tokenReveal ? 'ghp_9aB3xK7pQ2mL8vR4tN6yWc' : 'ghp_•••••••••••••••••••••••',
-    tokenBtn: s.tokenReveal ? 'Hide' : 'Reveal', revealToken: () => update((st) => ({ tokenReveal: !st.tokenReveal })),
+    settings: settingsRes.data,
+    settingsLoading: settingsRes.loading,
+    settingsError: settingsRes.error,
+    retrySettings: settingsRes.refetch,
     setTheme,
 
     drawerOpen: !!dl, dLead, drawerLoading: s.drawerLoading, closeDrawer: () => patch({ drawer: null, drawerLoading: false }),
