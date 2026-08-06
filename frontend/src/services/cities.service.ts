@@ -25,6 +25,7 @@ function mapCity(c: CityRow): City {
     status: c.status,
     found: c.leads_found ?? 0,
     updated: timeAgo(c.updated_at),
+    updatedAt: c.updated_at,
   };
 }
 
@@ -55,7 +56,11 @@ export interface CountryCitiesQuery {
   limit?: number;
   offset?: number;
   search?: string;
+  sort?: { key: CitySortKey; dir: CitySortDir };
 }
+
+export type CitySortKey = 'city' | 'state' | 'status' | 'found' | 'updated';
+export type CitySortDir = 'asc' | 'desc';
 
 // One page of the cities seeded for a country, regardless of crawl status —
 // used by the Discovery page after a country load. Rows come back in the
@@ -65,10 +70,17 @@ export interface CountryCitiesQuery {
 // page through server-side without ever loading everything at once.
 export async function fetchCitiesByCountry(
   country: string,
-  { limit = 100, offset = 0, search }: CountryCitiesQuery = {},
+  { limit = 100, offset = 0, search, sort }: CountryCitiesQuery = {},
 ): Promise<CountryCities> {
   const res = await apiClient<CitiesResponse>(
-    `/api/cities${qs({ country, limit, offset, search: search?.trim() || undefined })}`,
+    `/api/cities${qs({
+      country,
+      limit,
+      offset,
+      search: search?.trim() || undefined,
+      sort: sort?.key,
+      order: sort?.dir,
+    })}`,
   );
   return { cities: (res.rows ?? []).map(mapCity), total: res.total ?? 0 };
 }

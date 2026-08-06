@@ -13,9 +13,9 @@ export function CityView({ v }: { v: V }) {
   const columns: Column<CityRow>[] = [
     { id: 'city', header: 'City', sortable: true, sortValue: (c) => c.city, className: 'font-medium', cell: (c) => c.city },
     { id: 'state', header: 'State', sortable: true, sortValue: (c) => c.state, className: 'font-mono text-muted', cell: (c) => c.state },
-    { id: 'status', header: 'Status', cell: (c) => <Badge tone={c.statusTone} dot>{c.status}</Badge> },
-    { id: 'found', header: 'Leads', align: 'right', className: 'font-mono', cell: (c) => c.found },
-    { id: 'updated', header: 'Updated', align: 'right', className: 'text-muted text-[12px]', cell: (c) => c.updated },
+    { id: 'status', header: 'Status', sortable: true, cell: (c) => <Badge tone={c.statusTone} dot>{c.status}</Badge> },
+    { id: 'found', header: 'Leads', sortable: true, align: 'right', className: 'font-mono', cell: (c) => c.found },
+    { id: 'updated', header: 'Updated', sortable: true, align: 'right', className: 'text-muted text-[12px]', cell: (c) => c.updated },
     {
       id: 'actions',
       header: 'Status controls',
@@ -112,6 +112,8 @@ export function CityView({ v }: { v: V }) {
             totalRows={cv.total}
             onPageChange={cv.setPage}
             onPageSizeChange={cv.setPageSize}
+            sort={cv.sort}
+            onSortChange={cv.setSort}
             minWidthClass="min-w-[720px]"
             loading={cv.loading}
             error={cv.error}

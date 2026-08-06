@@ -70,6 +70,19 @@ db.exec(`
   CREATE INDEX IF NOT EXISTS idx_seg_city ON segments(city_id, status);
 `);
 
+// Older builds allowed several cities to be marked active at once. Preserve the
+// first city the crawler would process and return every other stale active row
+// to pending before enforcing the one-active-city invariant at the DB level.
+db.exec(`
+  UPDATE cities
+  SET status = 'pending'
+  WHERE status = 'active'
+    AND id <> (SELECT id FROM cities WHERE status = 'active' ORDER BY id LIMIT 1);
+
+  CREATE UNIQUE INDEX IF NOT EXISTS idx_cities_single_active
+  ON cities(status) WHERE status = 'active';
+`);
+
 // emailed_at: ISO timestamp of the last time we actually sent an email to this
 // address (NULL = never contacted). The sender writes it after Gmail confirms a
 // real send, and `recipients` filters on it, so a recipient is never mailed twice.
@@ -83,6 +96,9 @@ const stmts = {
     `SELECT * FROM cities WHERE status NOT IN ('done', 'skipped') ORDER BY id LIMIT 1`
   ),
   setCityStatus: db.prepare(`UPDATE cities SET status=?, updated_at=? WHERE id=?`),
+  clearOtherActiveCities: db.prepare(
+    `UPDATE cities SET status='pending', updated_at=? WHERE status='active' AND id<>?`
+  ),
   cityStatus: db.prepare(`SELECT status FROM cities WHERE id = ?`),
 
   insertSegment: db.prepare(`
@@ -211,8 +227,28 @@ export const nextCity = (states) => {
   }
   return stmts.nextCity.get();
 };
-export const setCityStatus = (id, status) =>
-  stmts.setCityStatus.run(status, new Date().toISOString(), id);
+export function setCityStatus(id, status) {
+  const now = new Date().toISOString();
+  if (status !== 'active') return stmts.setCityStatus.run(status, now, id);
+
+  // Clearing the old active row and activating the requested one must be
+  // atomic. The partial unique index above is a final guard for other writers.
+  db.exec('BEGIN IMMEDIATE');
+  try {
+    // Do not clear the current active city when the requested id does not exist.
+    if (!stmts.cityStatus.get(id)) {
+      db.exec('ROLLBACK');
+      return { changes: 0 };
+    }
+    stmts.clearOtherActiveCities.run(now, id);
+    const result = stmts.setCityStatus.run('active', now, id);
+    db.exec('COMMIT');
+    return result;
+  } catch (error) {
+    db.exec('ROLLBACK');
+    throw error;
+  }
+}
 // Live status of a city, read fresh from disk — the crawler runs in a separate
 // process, so it polls this to notice a 'skipped' write made by the server.
 export const cityStatus = (id) => stmts.cityStatus.get(id)?.status ?? null;
@@ -407,9 +443,19 @@ export function getUserByLogin(login) {
 }
 
 const CITY_STATUSES = new Set(['pending', 'active', 'done', 'skipped']);
+const CITY_SORT_COLUMNS = {
+  city: 'c.city COLLATE NOCASE',
+  state: 'c.state COLLATE NOCASE',
+  status: 'c.status COLLATE NOCASE',
+  found: 'leads_found',
+  updated: 'c.updated_at',
+};
 
 export function listCities(opts = {}) {
-  const { status, search, state, states, limit = 100, offset = 0 } = opts;
+  const {
+    status, search, state, states,
+    sort = 'id', order = 'asc', limit = 100, offset = 0,
+  } = opts;
   const where = [];
   const params = [];
   if (status && CITY_STATUSES.has(status)) { where.push('c.status = ?'); params.push(status); }
@@ -421,6 +467,8 @@ export function listCities(opts = {}) {
   const whereSql = where.length ? `WHERE ${where.join(' AND ')}` : '';
   const lim = Math.min(Math.max(Number(limit) || 100, 1), 500);
   const off = Math.max(Number(offset) || 0, 0);
+  const sortCol = CITY_SORT_COLUMNS[sort] ?? 'c.id';
+  const sortDir = String(order).toLowerCase() === 'desc' ? 'DESC' : 'ASC';
 
   const rows = db
     .prepare(
@@ -428,7 +476,7 @@ export function listCities(opts = {}) {
               (SELECT COUNT(*) FROM users u WHERE u.source_city_id = c.id) AS leads_found
        FROM cities c
        ${whereSql}
-       ORDER BY c.id
+       ORDER BY ${sortCol} ${sortDir}, c.id ASC
        LIMIT ? OFFSET ?`
     )
     .all(...params, lim, off);
