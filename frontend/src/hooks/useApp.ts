@@ -661,11 +661,29 @@ export function useApp() {
     const onLine = (ev: MessageEvent) => {
       try {
         const line = JSON.parse(ev.data) as JobLine;
-        setState((prev) => ({ ...prev, crawlLines: [...prev.crawlLines.slice(-199), line] }));
+        const cityChanged = /^\[(city|skip|done)\]/.test(line.line);
+        setState((prev) => ({
+          ...prev,
+          crawlLines: [...prev.crawlLines.slice(-199), line],
+          // A crawler transition is authoritative; drop manual optimistic badges
+          // so the active row can follow the city the backend actually selected.
+          ...(cityChanged ? { cityOverride: {} } : {}),
+        }));
+        if (cityChanged) {
+          citiesRes.refetch();
+          countryCitiesRes.refetch();
+          cityViewRes.refetch();
+          statsRes.refetch();
+        }
       } catch { }
     };
     const onEnd = (ev: MessageEvent) => {
       try { patch({ crawlStatus: (JSON.parse(ev.data).status as JobStatus) ?? 'idle' }); } catch { }
+      patch({ cityOverride: {} });
+      citiesRes.refetch();
+      countryCitiesRes.refetch();
+      cityViewRes.refetch();
+      statsRes.refetch();
     };
 
     let es: EventSource;
@@ -1683,8 +1701,14 @@ export function useApp() {
         stopCrawl().then(() => toast('Stopping crawler…', 'warning')).catch((e) => toast(errMsg(e, 'Could not stop crawler'), 'danger'));
       } else {
         patch({ crawlLines: [] });
-        const country = stateRef.current.discoveryCountry;
-        startCrawl(country ? { country } : {})
+        const current = stateRef.current;
+        const country = current.discoveryCountry;
+        startCrawl(country ? {
+          country,
+          search: current.discoveryQuery.trim() || undefined,
+          sort: current.discoverySortKey,
+          order: current.discoverySortDir,
+        } : {})
           .then(() => { patch({ crawlStatus: 'running' }); toast(country ? `Crawler started — ${country}` : 'Crawler started', 'success'); })
           .catch((e) => toast(errMsg(e, 'Could not start crawler'), 'danger'));
       }

@@ -14,13 +14,16 @@ export default async function discoveryRoutes(fastify) {
         error: 'GITHUB_TOKEN is not set. Add it to backend/.env before starting Discovery.',
       });
     }
-    const { limit, maxProfiles, country } = req.body ?? {};
+    const { limit, maxProfiles, country, search, sort, order } = req.body ?? {};
     const argv = [CLI, 'run'];
     if (limit != null) argv.push('--limit', String(limit));
     if (maxProfiles != null) argv.push('--max-profiles', String(maxProfiles));
     // Scope the crawl to the country the operator is viewing in Discovery, so
     // "Start crawler" works the displayed work list rather than the global one.
     if (country) argv.push('--country', String(country));
+    if (search) argv.push('--search', String(search));
+    if (sort) argv.push('--sort', String(sort));
+    if (order) argv.push('--order', String(order));
     try {
       return jobs.job('discovery').start(argv);
     } catch (e) {

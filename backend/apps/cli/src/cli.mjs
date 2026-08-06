@@ -34,13 +34,16 @@ switch (cmd) {
     const limit = Number(flag('limit', Infinity));
     const maxProfiles = Number(flag('max-profiles', 0));
     const country = flag('country', '');
+    const search = flag('search', '');
+    const sort = flag('sort', 'id');
+    const order = flag('order', 'asc');
     const states = country ? countryStateFilter(country) : null;
     if (country && (!states || !states.length)) {
       console.error(`[warn] unknown country "${country}" — crawling the full work list.`);
     } else if (states) {
       console.error(`[scope] restricting crawl to ${country} (${states.length} state bucket(s)).`);
     }
-    await run({ limit, maxProfiles, states });
+    await run({ limit, maxProfiles, states, search, sort, order });
     break;
   }
   case 'export': {
@@ -98,7 +101,7 @@ switch (cmd) {
   default:
     console.error(`Usage:
   node apps/cli/src/cli.mjs init-cities [--query-mode city|city-state]
-  node apps/cli/src/cli.mjs run [--limit N] [--max-profiles N] [--country US|"United States"|DE|...]
+  node apps/cli/src/cli.mjs run [--limit N] [--max-profiles N] [--country US|"United States"|DE|...] [--search TEXT] [--sort city|state|status|found|updated] [--order asc|desc]
   node apps/cli/src/cli.mjs export
   node apps/cli/src/cli.mjs ges [--size N]
   node apps/cli/src/cli.mjs migrate

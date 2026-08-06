@@ -224,7 +224,15 @@ async function processSegment(gh, city, seg, ctl) {
   }
 }
 
-export async function run({ limit = Infinity, maxProfiles = 0, states = null, gh: injectedGh } = {}) {
+export async function run({
+  limit = Infinity,
+  maxProfiles = 0,
+  states = null,
+  search = '',
+  sort = 'id',
+  order = 'asc',
+  gh: injectedGh,
+} = {}) {
   const gh = injectedGh ?? new GitHub();
   // `rejects` tallies why hits were thrown away by the location check, reset per
   // city so the summary line says what a city's search actually dragged in.
@@ -238,7 +246,7 @@ export async function run({ limit = Infinity, maxProfiles = 0, states = null, gh
 
   let processedCities = 0;
   while (processedCities < limit) {
-    const city = nextCity(scope);
+    const city = nextCity({ states: scope, search, sort, order });
     if (!city) {
       console.error(scope ? '[done] no remaining cities in scope.' : '[done] no remaining cities.');
       break;

@@ -9,7 +9,7 @@ mkdirSync(join(root, 'data'), { recursive: true });
 process.env.GHFINDER_ROOT = root;
 process.env.GITHUB_TOKEN = 'test-token';
 
-const { db, loadCitiesTx, listCities, setCityStatus } = await import('../packages/core/src/index.mjs');
+const { db, loadCitiesTx, listCities, nextCity, setCityStatus } = await import('../packages/core/src/index.mjs');
 
 test.after(() => {
   db.close();
@@ -48,6 +48,22 @@ test('city lists sort globally by every data column', () => {
   assert.equal(listCities({ state: 'Test', sort: 'status', order: 'asc' }).rows[0].status, 'active');
   assert.equal(listCities({ state: 'Test', sort: 'found', order: 'desc' }).rows[0].city, 'First');
   assert.equal(listCities({ state: 'Test', sort: 'updated', order: 'desc' }).rows[0].city, 'Second');
+});
+
+test('crawler selects the active city first, then follows the visible order', () => {
+  const rows = listCities({ state: 'Test' }).rows;
+  const second = rows.find((city) => city.city === 'Second');
+
+  // First has more leads, but the explicitly active Second city wins priority.
+  assert.equal(nextCity({ states: ['Test'], sort: 'found', order: 'desc' }).city, 'Second');
+
+  setCityStatus(second.id, 'pending');
+  assert.equal(nextCity({ states: ['Test'], sort: 'city', order: 'desc' }).city, 'Second');
+  assert.equal(nextCity({ states: ['Test'], search: 'Fir', sort: 'city' }).city, 'First');
+  assert.equal(nextCity({ states: ['Test'], sort: 'found', order: 'desc' }).city, 'First');
+
+  // Restore one active row for the invariant tests below.
+  setCityStatus(second.id, 'active');
 });
 
 test('the database rejects multiple active cities from direct writers', () => {

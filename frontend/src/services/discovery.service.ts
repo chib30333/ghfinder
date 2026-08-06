@@ -26,7 +26,14 @@ export function fetchDiscoveryStatus(): Promise<JobState> {
   return apiClient<JobState>('/api/discovery/status');
 }
 
-export function startCrawl(opts: { limit?: number; maxProfiles?: number; country?: string } = {}): Promise<JobState> {
+export function startCrawl(opts: {
+  limit?: number;
+  maxProfiles?: number;
+  country?: string;
+  search?: string;
+  sort?: 'city' | 'state' | 'status' | 'found' | 'updated';
+  order?: 'asc' | 'desc';
+} = {}): Promise<JobState> {
   return apiClient<JobState>('/api/discovery/start', { method: 'POST', body: JSON.stringify(opts) });
 }
 

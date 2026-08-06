@@ -92,9 +92,6 @@ for (const col of ['email_source', 'telegram', 'discord', 'emailed_at']) {
 
 const stmts = {
   insertCity: db.prepare(`INSERT OR IGNORE INTO cities (city, state, query) VALUES (?, ?, ?)`),
-  nextCity: db.prepare(
-    `SELECT * FROM cities WHERE status NOT IN ('done', 'skipped') ORDER BY id LIMIT 1`
-  ),
   setCityStatus: db.prepare(`UPDATE cities SET status=?, updated_at=? WHERE id=?`),
   clearOtherActiveCities: db.prepare(
     `UPDATE cities SET status='pending', updated_at=? WHERE status='active' AND id<>?`
@@ -215,18 +212,42 @@ export const loadCitiesTx = (rows) => {
   }
 };
 
-// Next non-done city to crawl, in work order (city id). Pass `states` to scope
-// the crawl to a single country's cities (e.g. the US 2-letter codes) so the
-// Discovery country the operator is viewing is what actually gets crawled.
-export const nextCity = (states) => {
-  if (Array.isArray(states) && states.length) {
-    const ph = states.map(() => '?').join(', ');
-    return db
-      .prepare(`SELECT * FROM cities WHERE status NOT IN ('done', 'skipped') AND state IN (${ph}) ORDER BY id LIMIT 1`)
-      .get(...states);
-  }
-  return stmts.nextCity.get();
+const CITY_SORT_COLUMNS = {
+  city: 'c.city COLLATE NOCASE',
+  state: 'c.state COLLATE NOCASE',
+  status: 'c.status COLLATE NOCASE',
+  found: 'leads_found',
+  updated: 'c.updated_at',
 };
+
+// Pick the selected active city first, then follow the same filtered/sorted
+// order the operator sees in Discovery. All dynamic ORDER BY values come from
+// the allowlist above; search and state values remain bound parameters.
+export function nextCity({ states = null, search, sort = 'id', order = 'asc' } = {}) {
+  const where = [`c.status NOT IN ('done', 'skipped')`];
+  const params = [];
+  if (Array.isArray(states) && states.length) {
+    where.push(`c.state IN (${states.map(() => '?').join(', ')})`);
+    params.push(...states);
+  }
+  if (search) {
+    where.push('c.city LIKE ?');
+    params.push(`%${search}%`);
+  }
+  const sortCol = CITY_SORT_COLUMNS[sort] ?? 'c.id';
+  const sortDir = String(order).toLowerCase() === 'desc' ? 'DESC' : 'ASC';
+  return db
+    .prepare(
+      `SELECT c.*,
+              (SELECT COUNT(*) FROM users u WHERE u.source_city_id = c.id) AS leads_found
+       FROM cities c
+       WHERE ${where.join(' AND ')}
+       ORDER BY CASE WHEN c.status='active' THEN 0 ELSE 1 END,
+                ${sortCol} ${sortDir}, c.id ASC
+       LIMIT 1`
+    )
+    .get(...params);
+}
 export function setCityStatus(id, status) {
   const now = new Date().toISOString();
   if (status !== 'active') return stmts.setCityStatus.run(status, now, id);
@@ -443,14 +464,6 @@ export function getUserByLogin(login) {
 }
 
 const CITY_STATUSES = new Set(['pending', 'active', 'done', 'skipped']);
-const CITY_SORT_COLUMNS = {
-  city: 'c.city COLLATE NOCASE',
-  state: 'c.state COLLATE NOCASE',
-  status: 'c.status COLLATE NOCASE',
-  found: 'leads_found',
-  updated: 'c.updated_at',
-};
-
 export function listCities(opts = {}) {
   const {
     status, search, state, states,
