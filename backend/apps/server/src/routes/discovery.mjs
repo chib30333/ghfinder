@@ -9,6 +9,11 @@ export default async function discoveryRoutes(fastify) {
   fastify.get('/discovery/status', async () => jobs.job('discovery').state());
 
   fastify.post('/discovery/start', async (req, reply) => {
+    if (!config.token) {
+      return reply.code(400).send({
+        error: 'GITHUB_TOKEN is not set. Add it to backend/.env before starting Discovery.',
+      });
+    }
     const { limit, maxProfiles, country } = req.body ?? {};
     const argv = [CLI, 'run'];
     if (limit != null) argv.push('--limit', String(limit));

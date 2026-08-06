@@ -64,11 +64,11 @@ export interface CountryCitiesQuery {
 // full count for that country (e.g. the US spans ~29.8k rows) so the table can
 // page through server-side without ever loading everything at once.
 export async function fetchCitiesByCountry(
-  state: string,
+  country: string,
   { limit = 100, offset = 0, search }: CountryCitiesQuery = {},
 ): Promise<CountryCities> {
   const res = await apiClient<CitiesResponse>(
-    `/api/cities${qs({ state, limit, offset, search: search?.trim() || undefined })}`,
+    `/api/cities${qs({ country, limit, offset, search: search?.trim() || undefined })}`,
   );
   return { cities: (res.rows ?? []).map(mapCity), total: res.total ?? 0 };
 }

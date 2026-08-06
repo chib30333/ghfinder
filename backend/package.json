@@ -9,6 +9,7 @@
     "apps/*"
   ],
   "scripts": {
-    "server": "node apps/server/src/index.mjs"
+    "server": "node apps/server/src/index.mjs",
+    "test": "node --test"
   }
 }

@@ -11,7 +11,7 @@ export interface RateWindow {
 
 export interface RateLimit {
   ok: boolean;
-  /** Present only when ok is false: 'bad_token' | 'unreachable' | 'http_<n>'. */
+  /** Present only when ok is false: token/config/network failure reason. */
   reason?: string;
   core: RateWindow | null;
   search: RateWindow | null;
@@ -34,6 +34,7 @@ export function fetchRateLimit(): Promise<RateLimit> {
 
 /** Human reason for the meter's degraded states. */
 export function rateLimitReason(reason: string | undefined): string {
+  if (reason === 'missing_token') return 'Add GITHUB_TOKEN to backend/.env to enable Discovery.';
   if (reason === 'bad_token') return 'GITHUB_TOKEN is invalid, expired, or revoked.';
   if (reason === 'unreachable') return 'Could not reach api.github.com.';
   if (reason?.startsWith('http_')) return `GitHub answered HTTP ${reason.slice(5)}.`;

@@ -8,14 +8,15 @@ const CITY_STATUSES = new Set(['pending', 'active', 'done', 'skipped']);
 export default async function citiesRoutes(fastify) {
   fastify.get('/cities', async (req) => {
     const q = req.query;
-    const country = q.state || q.country;
     // CSV-backed countries (the US) span many state values, so filter by the
     // full set of their state codes rather than a single exact match.
-    const states = country ? countryStates(country) : null;
+    // Keep `state` exact: values such as CA are both a US state and a country
+    // code (Canada), and treating them as a country returns the wrong rows.
+    const states = q.country ? countryStates(q.country) : null;
     return listCities({
       status: q.status,
       search: q.search,
-      ...(states && states.length ? { states } : { state: country }),
+      ...(states && states.length ? { states } : { state: q.state || q.country }),
       limit: q.limit,
       offset: q.offset,
     });
