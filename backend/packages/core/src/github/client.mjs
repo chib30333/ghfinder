@@ -34,7 +34,7 @@ export class GitHub {
 
   headers(extra = {}) {
     return {
-      Authorization: `Bearer ${this.token}`,
+      ...(this.token ? { Authorization: `Bearer ${this.token}` } : {}),
       Accept: 'application/vnd.github+json',
       'X-GitHub-Api-Version': config.apiVersion,
       'User-Agent': config.userAgent,
@@ -57,6 +57,7 @@ export class GitHub {
   // Deliberately bypasses getJson(): its ETag cache would answer a 304 with a
   // stale snapshot, which is exactly the number we must never show.
   async getRateLimit() {
+    if (!this.token) return { ok: false, reason: 'missing_token' };
     const res = await fetch(`${config.apiBase}/rate_limit`, { headers: this.headers() });
     if (res.status === 401) return { ok: false, reason: 'bad_token' };
     if (!res.ok) return { ok: false, reason: `http_${res.status}` };
@@ -65,6 +66,11 @@ export class GitHub {
   }
 
   async getJson(path, { floor = 2, retries = 6 } = {}) {
+    if (!this.token) {
+      throw new Error(
+        'GITHUB_TOKEN is not set. Add it to backend/.env before starting a Discovery crawl.',
+      );
+    }
     const url = path.startsWith('http') ? path : `${config.apiBase}${path}`;
     const cached = readCache(url);
 

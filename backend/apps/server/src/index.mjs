@@ -19,7 +19,11 @@ const app = Fastify({ logger: true });
 
 await app.register(cors, { origin: true });
 
-app.get('/api/health', async () => ({ ok: true, root: config.root }));
+app.get('/api/health', async () => ({
+  ok: true,
+  root: config.root,
+  githubConfigured: Boolean(config.token),
+}));
 
 for (const plugin of [
   statsRoutes,

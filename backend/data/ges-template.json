@@ -1,0 +1,4 @@
+{
+  "subject": "Hi, {{firstName}}",
+  "message": "I came across your GitHub profile and wanted to reach out.\n\n<< replace this body >>\n\nThanks,\nYour Name"
+}

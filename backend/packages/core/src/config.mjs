@@ -46,10 +46,6 @@ function loadEnvFile(path) {
 loadEnvFile(resolve(ROOT, '.env'));
 
 const token = (process.env.GITHUB_TOKEN || '').trim();
-if (!token) {
-  console.error('FATAL: GITHUB_TOKEN is not set (checked .env and environment).');
-  process.exit(1);
-}
 
 const dbPath = resolve(ROOT, process.env.GHFINDER_DB || 'data/ghfinder.sqlite');
 const exportDir = resolve(ROOT, process.env.GHFINDER_TEXTDIR || resolve(dirname(dbPath), 'cities'));

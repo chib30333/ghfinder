@@ -354,9 +354,9 @@ As you may know, Asian accounts often receive lower hourly rates, and many Europ
 If you already have an unused Upwork account, I would be grateful if you could lend it to me. If not, you could create a new one for our collaboration.
 
 How we can work together:
--I' d like to work on your account on freelance platforms such as Upwork or Freelancer.
--I would appreciate it if you could respond to client requests for video conferences.
--Here, all monthly earnings are conveniently and securely deposited into your Payoneer or PayPal account linked to your freelancer account.
+- I' d like to work on your account on freelance platforms such as Upwork or Freelancer.
+- I would appreciate it if you could respond to client requests for video conferences.
+- Here, all monthly earnings are conveniently and securely deposited into your Payoneer or PayPal account linked to your freelancer account.
 
 You keep 30% of your monthly earnings, and I would appreciate it if you could send the remaining amount to me via PayPal or Payoneer.
 For privacy and security, I am happy to work through a virtual machine or a secondary computer—whichever is more comfortable for you.

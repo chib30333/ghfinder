@@ -6,7 +6,7 @@ import {
   writeFileSync,
   rmSync,
 } from 'node:fs';
-import { join } from 'node:path';
+import { dirname, join } from 'node:path';
 import { config } from '../config.mjs';
 
 export const gesDir = join(config.root, 'data', 'ges');
@@ -22,6 +22,7 @@ const DEFAULT_TEMPLATE = {
 
 export function loadTemplate() {
   if (!existsSync(templatePath)) {
+    mkdirSync(dirname(templatePath), { recursive: true });
     writeFileSync(templatePath, JSON.stringify(DEFAULT_TEMPLATE, null, 2) + '\n');
     return { ...DEFAULT_TEMPLATE, _created: true };
   }
@@ -82,6 +83,7 @@ export function saveTemplate(tpl) {
     throw new Error('template must have string "subject" and "message" fields.');
   }
   const clean = { subject: tpl.subject, message: tpl.message };
+  mkdirSync(dirname(templatePath), { recursive: true });
   writeFileSync(templatePath, JSON.stringify(clean, null, 2) + '\n');
   return clean;
 }

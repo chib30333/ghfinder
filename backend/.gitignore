@@ -17,6 +17,7 @@ data/*.sqlite-wal
 # Export text files (GHFINDER_TEXTDIR, default data/cities), social-link CSV,
 # HTTP cache, and cloned repos are all produced at runtime.
 data/cities/
+data/ges/
 data/link.csv
 .cache/
 clones/
@@ -40,5 +41,9 @@ dist-ssr/
 Thumbs.db
 .vscode/*
 !.vscode/extensions.json
-data
+
+# Keep source data visible to Git. Runtime files under data/ are ignored above.
+!data/
+!data/us_cities.csv
+!data/ges-template.json
 
