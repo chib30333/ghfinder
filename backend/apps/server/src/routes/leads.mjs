@@ -1,4 +1,4 @@
-import { listUsers, getUserByLogin, setLeadStatus } from '@ghfinder/core';
+import { listUsers, getUserByLogin, setLeadStatus, countryStates } from '@ghfinder/core';
 
 const bool = (v) => v === '1' || v === 'true' || v === true;
 
@@ -9,6 +9,9 @@ const LEAD_STATUSES = new Set(['active', 'done']);
 export default async function leadsRoutes(fastify) {
   fastify.get('/leads', async (req) => {
     const q = req.query;
+    // A country spans many `state` values in the cities table (US state codes for
+    // the CSV-backed US, the country name elsewhere), so resolve it to that set.
+    const states = q.country ? countryStates(q.country) : null;
     return listUsers({
       search: q.search,
       hasEmail: bool(q.hasEmail),
@@ -16,6 +19,7 @@ export default async function leadsRoutes(fastify) {
       hireable: bool(q.hireable),
       emailSource: q.emailSource,
       city: q.city,
+      ...(states && states.length ? { states } : {}),
       sort: q.sort,
       order: q.order,
       limit: q.limit,
