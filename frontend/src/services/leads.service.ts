@@ -11,6 +11,8 @@ export interface LeadQuery {
   hasEmail?: boolean;
   hireable?: boolean;
   source?: LeadSource;
+  // ISO-2 country code (e.g. 'US'). Matched against the lead's source city.
+  country?: string;
   sort?: { key: LeadSortKey; dir: SortDir };
   limit?: number;
   offset?: number;
@@ -83,6 +85,7 @@ export async function fetchLeads(q: LeadQuery = {}): Promise<{ leads: Lead[]; to
     hasEmail: q.hasEmail ? 1 : undefined,
     hireable: q.hireable ? 1 : undefined,
     emailSource: q.source && q.source !== 'all' ? q.source : undefined,
+    country: q.country?.trim() || undefined,
     sort: q.sort ? SORT_COLUMN[q.sort.key] : undefined,
     order: q.sort?.dir,
     limit: q.limit ?? 50,

@@ -1,6 +1,6 @@
 import { Icon } from '@/lib/icons';
 import { cn } from '@/lib/utils';
-import { Avatar, Badge, Button, Card, DataTable, IconButton, InfoTip, SearchBox, Toggle, type Column } from '@/components/ui';
+import { Avatar, Badge, Button, Card, DataTable, IconButton, InfoTip, SearchBox, Spinner, Toggle, type Column } from '@/components/ui';
 import { HINTS } from '@/lib/hints';
 import type { V } from '@/hooks/useApp';
 
@@ -123,6 +123,27 @@ export function LeadsView({ v }: { v: V }) {
         )}
       </div>
 
+      {/* The table shows one country at a time — no "all countries" option. */}
+      <div className="flex items-center gap-2.5 flex-wrap mb-3.5">
+        <label htmlFor="leads-country" className="text-[11px] text-muted uppercase tracking-wide">
+          Country
+        </label>
+        <select
+          id="leads-country"
+          value={v.leadCountry}
+          onChange={(e) => v.onLeadCountry(e.target.value)}
+          className="h-[34px] rounded-8 border border-line bg-surface-2 pl-2.5 pr-2 text-[13px] text-fg cursor-pointer outline-none focus-visible:border-accent max-w-[220px]"
+        >
+          {v.leadCountryOptions.map((c) => (
+            <option key={c.code} value={c.code}>{c.flag} {c.name}</option>
+          ))}
+        </select>
+        {v.leadsRefetching && <Spinner size={14} className="text-accent" />}
+        <span className="text-[12px] text-muted">
+          Showing leads sourced from <span className="text-fg">{v.leadCountryName}</span> only.
+        </span>
+      </div>
+
       {v.bulkOpen && (
         <div className="flex items-center gap-3 px-3.5 py-2.5 mb-3 bg-accent-quiet border border-accent rounded-8">
           <span className="text-[13px] font-semibold font-mono">{v.selectedCount} selected</span>
@@ -159,8 +180,8 @@ export function LeadsView({ v }: { v: V }) {
             action: <Button variant="primary" onClick={v.retryLeads}>Retry</Button>,
           }}
           emptyState={{
-            title: 'No leads match your filters',
-            description: 'Try widening your search or clearing filters.',
+            title: `No leads for ${v.leadCountryName}`,
+            description: 'Crawl this country from Countries, or pick another country / widen your search.',
             action: <Button variant="primary" onClick={v.clearFilters}>Clear filters</Button>,
           }}
           stickyHeader

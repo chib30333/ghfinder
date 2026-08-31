@@ -93,8 +93,6 @@ export function AccountsView({ v }: { v: V }) {
             action={<Button variant="primary" onClick={v.retryCdp}>Retry</Button>}
           />
         </Card>
-      ) : v.accountsLoading ? (
-        <Card><StateCard variant="loading" title="Discovering Gmail accounts…" /></Card>
       ) : (
       <>
       {v.cdpUp && (

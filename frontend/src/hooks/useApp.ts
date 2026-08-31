@@ -110,6 +110,9 @@ const EMPTY_STATS: Stats = {
   segmentsTotal: 0, usersTotal: 0, usersWithEmail: 0, usersWithSocial: 0,
 };
 const LEADS_PAGE = 50;
+// The Leads table is scoped to a single country at a time; the US is the market
+// the app ships pointed at.
+const DEFAULT_LEAD_COUNTRY = 'US';
 const SAFE_DAILY_CAP = 15;
 // How often the top-bar meter re-reads the GitHub budget. Cheap: GitHub does not
 // charge /rate_limit against the window it reports.
@@ -262,6 +265,9 @@ interface AppState {
   sortKey: LeadSortKey;
   sortDir: 'asc' | 'desc';
   fltSource: LeadSource;
+  // ISO-2 country the Leads table is scoped to. The table always shows exactly
+  // one country; 'US' is the default market.
+  fltCountry: string;
   leadsPage: number;
   leadsPageSize: number;
   // Optimistic per-lead status overrides keyed by login, applied on top of the
@@ -333,7 +339,7 @@ const DISCOVERY0 = loadDiscoveryView();
 const INITIAL: AppState = {
   collapsed: false, search: '',
   sortKey: 'followers', sortDir: 'desc',
-  fltSource: 'all', leadsPage: 0, leadsPageSize: LEADS_PAGE, leadOverride: {},
+  fltSource: 'all', fltCountry: DEFAULT_LEAD_COUNTRY, leadsPage: 0, leadsPageSize: LEADS_PAGE, leadOverride: {},
   sel: {}, drawer: null, drawerLoading: false, rawOpen: false, palette: false, confirm: false, pwModal: false,
   crawlStatus: 'idle', crawlLines: [], segmentsOpen: false,
   queryMode: 'city', selectedCountry: null,
@@ -605,11 +611,12 @@ export function useApp() {
       search: debouncedSearch,
       hasEmail: true,
       source: s.fltSource,
+      country: s.fltCountry,
       sort: { key: s.sortKey, dir: s.sortDir },
       limit: s.leadsPageSize,
       offset: s.leadsPage * s.leadsPageSize,
     }),
-    [debouncedSearch, s.fltSource, s.sortKey, s.sortDir, s.leadsPageSize, s.leadsPage],
+    [debouncedSearch, s.fltSource, s.fltCountry, s.sortKey, s.sortDir, s.leadsPageSize, s.leadsPage],
     { leads: [] as Lead[], total: 0 },
   );
   const filteredLeads = leadsRes.data.leads;
@@ -1338,9 +1345,12 @@ export function useApp() {
       statusActions: cityStatusActions(c.id, status, c.city),
     };
   });
-  const cityViewCountryOptions = countryData.countries
+  // Alphabetised country picker options, shared by the City view and the Leads
+  // country filter.
+  const countryOptions = countryData.countries
     .map((c) => ({ code: c.code, name: c.name, flag: flagEmoji(c.code) }))
     .sort((a, b) => a.name.localeCompare(b.name));
+  const cityViewCountryOptions = countryOptions;
   const cityViewRegion = cityViewMeta
     ? countryData.regions.find((r) => r.id === cityViewMeta.region)?.label ?? ''
     : '';
@@ -1719,8 +1729,15 @@ export function useApp() {
 
     leadCount: fmt(leadsTotal), search: s.search, onSearch: (e: React.ChangeEvent<HTMLInputElement>) => patch({ search: e.target.value, leadsPage: 0 }),
     sourceTabs: srcTabs,
-    hasFilters: s.fltSource !== 'all' || !!s.search,
-    clearFilters: () => patch({ fltSource: 'all', search: '', leadsPage: 0 }),
+    // The table is always scoped to exactly one country, so this is a plain
+    // picker with no "all countries" option.
+    leadCountry: s.fltCountry,
+    leadCountryName: countryOptions.find((c) => c.code === s.fltCountry)?.name ?? s.fltCountry,
+    leadCountryOptions: countryOptions,
+    onLeadCountry: (code: string) => patch({ fltCountry: code, leadsPage: 0, sel: {} }),
+    hasFilters: s.fltSource !== 'all' || !!s.search || s.fltCountry !== DEFAULT_LEAD_COUNTRY,
+    clearFilters: () =>
+      patch({ fltSource: 'all', search: '', fltCountry: DEFAULT_LEAD_COUNTRY, leadsPage: 0 }),
     bulkOpen: selCount > 0, selectedCount: selCount,
     bulkAdd: () => toast('Added ' + selCount + ' leads to campaign', 'success'),
     bulkExport: () => toast('Exporting ' + selCount + ' leads', 'info'),
@@ -1731,6 +1748,10 @@ export function useApp() {
     leadSort: { columnId: s.sortKey, dir: s.sortDir },
     onLeadSort: (columnId: string) => sortBy(columnId as LeadSortKey)(),
     leadsLoading: leadsRes.loading && filteredLeads.length === 0,
+    // True for every in-flight leads fetch, including the ones that keep the
+    // previous rows on screen (country/source switch, paging) — drives the
+    // inline spinner so a filter change is visibly acknowledged.
+    leadsRefetching: leadsRes.loading,
     leadsError: leadsRes.error, retryLeads: leadsRes.refetch,
     noResults: !leadsRes.loading && !leadsRes.error && filteredLeads.length === 0,
     leadsPage: s.leadsPage,

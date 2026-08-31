@@ -401,7 +401,7 @@ const USER_SORT_COLUMNS = new Set([
 
 export function listUsers(opts = {}) {
   const {
-    search, hasEmail, hasSocial, hireable, emailSource, city,
+    search, hasEmail, hasSocial, hireable, emailSource, city, states,
     sort = 'fetched_at', order = 'desc', limit = 50, offset = 0,
   } = opts;
 
@@ -417,6 +417,13 @@ export function listUsers(opts = {}) {
   if (hireable) where.push('u.hireable = 1');
   if (emailSource) { where.push('u.email_source = ?'); params.push(emailSource); }
   if (city) { where.push('c.city = ?'); params.push(city); }
+  // Country filter: the source city's `state` column holds a country name for
+  // non-US countries and a 2-letter state code for US cities, so a country is
+  // matched by the full set of its state values (see countryStates).
+  if (Array.isArray(states) && states.length) {
+    where.push(`c.state IN (${states.map(() => '?').join(', ')})`);
+    params.push(...states);
+  }
 
   const whereSql = where.length ? `WHERE ${where.join(' AND ')}` : '';
   const sortCol = USER_SORT_COLUMNS.has(sort) ? sort : 'fetched_at';
