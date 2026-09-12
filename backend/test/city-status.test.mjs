@@ -7,7 +7,7 @@ import test from 'node:test';
 const root = mkdtempSync(join(tmpdir(), 'ghfinder-city-status-'));
 mkdirSync(join(root, 'data'), { recursive: true });
 process.env.GHFINDER_ROOT = root;
-process.env.GITHUB_TOKEN = 'test-token';
+process.env.GITHUB_TOKEN = 'test-token-placeholder';
 
 const { db, loadCitiesTx, listCities, nextCity, setCityStatus } = await import('../packages/core/src/index.mjs');
 

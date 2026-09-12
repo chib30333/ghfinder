@@ -12,7 +12,7 @@ writeFileSync(
 );
 
 process.env.GHFINDER_ROOT = root;
-process.env.GITHUB_TOKEN = 'test-token';
+process.env.GITHUB_TOKEN = 'test-token-placeholder';
 
 const countries = await import('../packages/core/src/data/countries.mjs');
 const templates = await import('../packages/core/src/outreach/template.mjs');
