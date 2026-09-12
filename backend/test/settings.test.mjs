@@ -8,7 +8,7 @@ import Fastify from 'fastify';
 const root = mkdtempSync(join(tmpdir(), 'ghfinder-settings-'));
 mkdirSync(join(root, 'data'), { recursive: true });
 process.env.GHFINDER_ROOT = root;
-process.env.GITHUB_TOKEN = 'test-secret-value-1234';
+process.env.GITHUB_TOKEN = 'test-token-placeholder';
 process.env.GHFINDER_USERS_PER_FILE = '321';
 
 const { default: settingsRoutes } = await import('../apps/server/src/routes/settings.mjs');
