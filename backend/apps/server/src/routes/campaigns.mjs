@@ -1,16 +1,20 @@
 import { join } from 'node:path';
-import { config, loadTemplate, saveTemplate, buildBatches, usersWithEmail } from '@ghfinder/core';
+import { config, loadTemplates, saveTemplates, MAX_TEMPLATES, buildBatches, usersWithEmail } from '@ghfinder/core';
 import { jobs } from '../jobs.mjs';
 import { streamJob } from '../sse.mjs';
 
 const SENDER = join(config.root, 'apps', 'sender', 'src', 'index.mjs');
 
 export default async function campaignsRoutes(fastify) {
-  fastify.get('/campaigns/template', async () => loadTemplate());
+  // The rotation the sender walks: 1..MAX_TEMPLATES variants, used in order.
+  fastify.get('/campaigns/template', async () => {
+    const { templates } = loadTemplates();
+    return { templates, max: MAX_TEMPLATES };
+  });
 
   fastify.put('/campaigns/template', async (req, reply) => {
     try {
-      return saveTemplate(req.body ?? {});
+      return { templates: saveTemplates(req.body ?? {}) };
     } catch (e) {
       return reply.code(400).send({ error: e.message });
     }
@@ -21,8 +25,8 @@ export default async function campaignsRoutes(fastify) {
   fastify.post('/campaigns/batches', async (req, reply) => {
     const size = Math.max(1, Number(req.body?.size ?? 20) || 20);
     try {
-      const tpl = loadTemplate();
-      return buildBatches(usersWithEmail(), tpl, size);
+      const { templates } = loadTemplates();
+      return buildBatches(usersWithEmail(), templates, size);
     } catch (e) {
       return reply.code(400).send({ error: e.message });
     }

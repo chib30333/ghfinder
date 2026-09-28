@@ -9,13 +9,18 @@ export interface SendTemplate {
   message: string;
 }
 
-// Persist the subject/body the operator typed so the CDP sender composes the
-// same content (with {{firstName}} filled per recipient) that the UI previews.
-export function saveTemplate(tpl: SendTemplate): Promise<SendTemplate> {
-  return apiClient<SendTemplate>('/api/campaigns/template', {
+// Upper bound on the rotation, mirroring MAX_TEMPLATES in @ghfinder/core. A PUT
+// over this is rejected by the backend, so the editor caps the list here too.
+export const MAX_TEMPLATES = 10;
+
+// Persist the rotation the operator typed so the CDP sender composes the same
+// variants (with {{firstName}} filled per recipient) that the UI previews. The
+// sender walks them in order, one per message, per account.
+export function saveTemplates(templates: SendTemplate[]): Promise<SendTemplate[]> {
+  return apiClient<{ templates: SendTemplate[] }>('/api/campaigns/template', {
     method: 'PUT',
-    body: JSON.stringify(tpl),
-  });
+    body: JSON.stringify({ templates }),
+  }).then((res) => res.templates);
 }
 
 export interface StartSendOpts {

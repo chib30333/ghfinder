@@ -7,6 +7,7 @@ export type { Account } from './account';
 export type { ExportFile } from './export';
 export type { City, CrawlBar, ActivityItem } from './discovery';
 export type {
+  DraftTemplate,
   LogStream,
   SendLog,
   SendAcct,

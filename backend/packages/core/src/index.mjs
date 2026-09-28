@@ -63,9 +63,11 @@ export { importTextUsersToDb } from './export/import-text.mjs';
 export {
   gesDir,
   templatePath,
-  loadTemplate,
+  MAX_TEMPLATES,
+  loadTemplates,
+  saveTemplates,
+  templateAt,
   firstName,
   toEntry,
   buildBatches,
-  saveTemplate,
 } from './outreach/template.mjs';

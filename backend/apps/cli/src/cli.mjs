@@ -9,7 +9,7 @@ import {
   regenerateAllUserFiles,
   regenerateLinkFile,
   migrateCityFilesToBatches,
-  loadTemplate,
+  loadTemplates,
   buildBatches,
   templatePath,
   importTextUsersToDb,
@@ -57,17 +57,17 @@ switch (cmd) {
   }
   case 'ges': {
     const size = Math.max(1, Number(flag('size', 20)) || 20);
-    const tpl = loadTemplate();
-    if (tpl._created) {
+    const { templates, created } = loadTemplates();
+    if (created) {
       console.error(
         `Created a starter template at ${templatePath}.\n` +
-        `Edit its "subject"/"message" (use {{firstName}} to personalise), then re-run.`
+        `Edit its "templates" entries ("subject"/"message", {{firstName}} to personalise), then re-run.`
       );
     }
     const rows = usersWithEmail();
-    const { recipients, files, dir } = buildBatches(rows, tpl, size);
+    const { recipients, files, dir } = buildBatches(rows, templates, size);
     console.error(
-      `Wrote ${files} GES batch file(s) (${size}/file, ${recipients} recipients) into ${dir}.\n` +
+      `Wrote ${files} GES batch file(s) (${size}/file, ${recipients} recipients) into ${dir}, rotating ${templates.length} template(s) in order.\n` +
       `Paste one batch_NNNN.json into the GES popup per run.`
     );
     break;

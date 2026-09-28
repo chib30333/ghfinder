@@ -1,3 +1,11 @@
+// One variant of the send rotation as the Campaigns editor holds it. `body` is
+// just the operator's text: the required footer (identity + opt-out) is appended
+// to every variant when the rotation is saved for the sender.
+export interface DraftTemplate {
+  subject: string;
+  body: string;
+}
+
 export type LogStream = 'stdout' | 'stderr';
 
 export interface SendLog {

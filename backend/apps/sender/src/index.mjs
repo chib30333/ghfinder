@@ -4,7 +4,7 @@ import { chromium } from 'playwright-core';
 import { spawn } from 'node:child_process';
 import fs from 'node:fs';
 import path from 'node:path';
-import { config, recipients, loadTemplate, toEntry, isValidEmail, looksLikeOrg, deleteUser, markEmailed, deleteByEmail } from '@ghfinder/core';
+import { config, recipients, loadTemplates, toEntry, isValidEmail, looksLikeOrg, deleteUser, markEmailed, deleteByEmail } from '@ghfinder/core';
 
 function arg(name, fallback) {
   const i = process.argv.indexOf(`--${name}`);
@@ -223,13 +223,15 @@ async function typeText(locator, text) {
   }
 }
 
-async function composeOne(page, user, tpl) {
+async function composeOne(page, user, tpl, tplLabel) {
   const to = String(user.email).trim();
-  // Render the operator's saved template (subject + body + footer), filling
-  // {{firstName}} per recipient — the same content shown in the UI preview.
+  // Render the template the rotation handed this message (subject + body +
+  // footer), filling {{firstName}} per recipient — the same content the
+  // UI previews for that variant.
   const { subject, message } = toEntry(user, tpl);
 
   console.log(`\n> ${user.name ?? user.login} <${to}>`);
+  console.log(`  Template: ${tplLabel}`);
   console.log(`  Subject: ${subject}`);
 
   await page.getByRole('button', { name: 'Compose' }).click();
@@ -468,11 +470,16 @@ async function main() {
   if (removed > 0) console.log(`Removed ${removed} recipient(s) (malformed email or company name).`);
   if (users.length === 0) throw new Error('No recipients with a valid, person-named email address in this batch.');
 
-  const tpl = loadTemplate();
+  const { templates } = loadTemplates();
 
   console.log(`DB: ${config.dbPath}`);
   console.log(`Recipients to process: ${users.length} (from offset ${INDEX})`);
   console.log(`Send:  ${SEND ? 'YES (will click Send)' : 'no (draft only)'}`);
+  console.log(
+    templates.length > 1
+      ? `Templates: ${templates.length} in rotation — each account walks them in order.`
+      : `Templates: 1 (every recipient gets the same body).`
+  );
   const activeCount = accounts.filter((a) => !blockedToday.has(a.index)).length;
   console.log(`Sending accounts (${activeCount} of ${accounts.length} usable, round-robin):`);
   for (const a of accounts) {
@@ -494,6 +501,18 @@ async function main() {
   // Counts NEW sends this run per account (0-based) — drives the per-account cap
   // gate below and the run summary. The daily offset is applied via capFor, not here.
   const sentPer = new Map(accounts.map((a) => [a.index, 0]));
+  // Which template of the rotation the next message from a given account uses.
+  // The account's own position in the list is added in so N accounts and N
+  // templates cannot fall into lockstep — without it, round-robin over 5
+  // accounts with 5 templates would pin each account to one variant forever.
+  // Today's already-sent count is added too, so an account resuming mid-day
+  // picks the rotation up where it stopped instead of restarting at template 1.
+  const acctOrdinal = new Map(accounts.map((a, i) => [a.index, i]));
+  const rotationFor = (index) => {
+    const sentToday = (SENT_OFFSETS.get(index) ?? 0) + sentPer.get(index);
+    const n = (acctOrdinal.get(index) + sentToday) % templates.length;
+    return { tpl: templates[n], label: `${n + 1} of ${templates.length}` };
+  };
   // Consecutive failures PER account, and the set of accounts we've given up on.
   // A single broken account (signed out, crashed tab, hit Gmail's send limit)
   // fails every attempt while the browser stays connected and the OTHER accounts
@@ -544,7 +563,8 @@ async function main() {
     // whole batch. Log it, discard the stuck compose, and move to the next one.
     try {
       const page = await pageForAccount(context, acct.index, cache);
-      await composeOne(page, users[i], tpl);
+      const { tpl, label } = rotationFor(acct.index);
+      await composeOne(page, users[i], tpl, label);
       sentPer.set(acct.index, sentPer.get(acct.index) + 1);
       failPer.set(acct.index, 0);
       done++;
