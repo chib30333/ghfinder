@@ -18,11 +18,50 @@ export function CampaignsView({ v }: { v: V }) {
         <div className="flex flex-col gap-[14px]">
           <Card className="p-4">
             <div className="flex items-center mb-3">
-              <h3 className="text-[14px] font-semibold flex items-center gap-1.5">Template<InfoTip label={HINTS.campTemplate} /></h3>
+              <h3 className="text-[14px] font-semibold flex items-center gap-1.5">
+                Templates<InfoTip label={HINTS.campTemplate} />
+              </h3>
+              <span className="ml-2 text-[11px] text-muted font-mono">{v.tplReady}/{v.tplTotal} ready</span>
               <Button variant="accentQuiet" size="xs" className="ml-auto font-mono" onClick={v.insertToken}>
                 {v.tokenChip}
               </Button>
             </div>
+            <div className="flex flex-wrap items-center gap-1.5 mb-3">
+              {v.templateTabs.map((t) => (
+                <span
+                  key={t.key}
+                  onClick={t.select}
+                  title={t.ready ? undefined : 'Subject or body is still empty'}
+                  className={cn(
+                    'inline-flex items-center gap-1.5 pl-2.5 pr-1.5 py-[5px] rounded-20 text-[12px] font-semibold font-mono cursor-pointer border transition-colors',
+                    t.on ? 'bg-accent-quiet text-accent border-accent' : 'bg-surface-2 text-fg border-line hover:bg-surface',
+                  )}
+                >
+                  {t.label}
+                  {!t.ready && <Icon name="alert" size={11} className="text-warning" />}
+                  {v.canRemoveTemplate && (
+                    <button
+                      type="button"
+                      aria-label={`Remove template ${t.label}`}
+                      onClick={(e) => { e.stopPropagation(); t.remove(); }}
+                      className="inline-flex items-center justify-center w-[15px] h-[15px] rounded-20 text-muted hover:text-danger hover:bg-danger-quiet cursor-pointer"
+                    >
+                      <Icon name="close" size={10} />
+                    </button>
+                  )}
+                </span>
+              ))}
+              <Button
+                variant="soft"
+                size="xs"
+                disabled={!v.canAddTemplate}
+                onClick={v.addTemplate}
+                title={v.canAddTemplate ? 'Add a variant to the rotation' : `At the ${v.maxTemplates}-template limit`}
+              >
+                <Icon name="plus" size={12} /> Add
+              </Button>
+            </div>
+            <p className="mb-3 text-[11px] text-muted leading-snug">{v.rotationNote}</p>
             <label className="text-[11px] text-muted">Subject<Input value={v.subject} onChange={v.onSubject} inputSize="lg" className="mt-1.5" /></label>
             <label className="text-[11px] text-muted block mt-3">Message<Textarea value={v.body} onChange={v.onBody} rows={7} className="mt-1.5" /></label>
             <div className="mt-3.5 pt-3.5 border-t border-dashed border-line">
@@ -35,6 +74,7 @@ export function CampaignsView({ v }: { v: V }) {
           <Card clip>
             <div className="px-4 py-[11px] border-b border-line flex items-center gap-2">
               <h3 className="text-[13px] font-semibold flex items-center gap-1.5">Live preview<InfoTip label={HINTS.campPreview} size={13} /></h3>
+              <span className="text-[11px] text-muted font-mono">T{v.tplIndex + 1}</span>
               <span className="text-[11px] text-muted">→ {v.sampleEmail}</span>
             </div>
             <div className="p-4">

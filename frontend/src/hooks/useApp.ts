@@ -44,7 +44,8 @@ import {
   startCrawl,
   stopCrawl,
   DISCOVERY_STREAM_URL,
-  saveCampaignTemplate,
+  saveCampaignTemplates,
+  MAX_TEMPLATES,
   startCampaignSend,
   stopCampaignSend,
   fetchCampaignSendStatus,
@@ -60,6 +61,7 @@ import type {
   AuthView,
   CdpState,
   City,
+  DraftTemplate,
   ExportFile,
   Lead,
   LeadStatus,
@@ -313,8 +315,10 @@ interface AppState {
   enrich: boolean[];
   reposToScan: number;
   senders: boolean[];
-  subject: string;
-  body: string;
+  // The send rotation, 1..MAX_TEMPLATES variants used in order (one per message,
+  // per account). `tplIndex` is only which one the editor is showing.
+  templates: DraftTemplate[];
+  tplIndex: number;
   authed: boolean;
   authUser: AuthUser | null;
   profile: Profile;
@@ -357,24 +361,8 @@ const INITIAL: AppState = {
   loadingCountry: false, searchingCountry: false, loadingCities: false, cityOverride: {},
   dailyCap: SAFE_DAILY_CAP, enrich: [true, true, true, true], reposToScan: 5,
   senders: [],
-  subject: 'Hi, {{firstName}}',
-  body: `
-I’m Wei, a full stack developer with more than 8 years of experience based in China.
-I worked on Upwork for a long time and built consistent results. Due to a minor policy violation, my account was blocked, and I am now restarting my freelance journey on Upwork and Freelancer.
-
-As you may know, Asian accounts often receive lower hourly rates, and many European and American clients tend to prefer hiring local developers. Because of this, I am looking to collaborate with a American partner.
-If you already have an unused Upwork account, I would be grateful if you could lend it to me. If not, you could create a new one for our collaboration.
-
-How we can work together:
-- I' d like to work on your account on freelance platforms such as Upwork or Freelancer.
-- I would appreciate it if you could respond to client requests for video conferences.
-- Here, all monthly earnings are conveniently and securely deposited into your Payoneer or PayPal account linked to your freelancer account.
-
-You keep 30% of your monthly earnings, and I would appreciate it if you could send the remaining amount to me via PayPal or Payoneer.
-For privacy and security, I am happy to work through a virtual machine or a secondary computer—whichever is more comfortable for you.
-Also, if you have any personal projects or tasks you would like me to handle, please feel free to let me know at any time.
-I look forward to hearing from you.
-  `,
+  templates: [{ subject: 'Hi, {{firstName}}', body: '' }],
+  tplIndex: 0,
   authed: false, authUser: null, profile: emptyProfile(),
   resetEmail: 'operator@ghfinder.io',
   acctMenu: false, send: null, sentDaily: loadSentDaily(), sendProgress: loadSendProgress(), mobileNav: false,
@@ -856,10 +844,14 @@ export function useApp() {
     const capacity = accts.reduce((sum, a) => sum + Math.max(0, cap - a.sent), 0);
     const total = Math.min(recipientCount(), capacity);
 
-    // Fold the required footer (identity + opt-out) into the body exactly as the
-    // live preview shows it, then persist it as the template the sender renders.
+    // Fold the required footer (identity + opt-out) into every variant's body
+    // exactly as the live preview shows it, then persist the whole rotation as the
+    // templates the sender walks in order.
     const footer = [s.senderIdentity, s.unsubLine].map((x) => x.trim()).filter(Boolean).join('\n');
-    const message = footer ? s.body + '\n\n' + footer : s.body;
+    const rotation = s.templates.map((t) => ({
+      subject: t.subject,
+      message: footer ? t.body + '\n\n' + footer : t.body,
+    }));
 
     const all = s.scope === 'all';
     const count = s.scope === 'count' ? s.count : undefined;
@@ -879,12 +871,18 @@ export function useApp() {
         logs: [
           { stream: 'stdout', line: '$ ghfinder send --' + (dry ? 'draft' : 'send') + ' --per-account ' + perAccount + (all ? ' --all' : ' --count ' + count) },
           { stream: 'stdout', line: dry ? 'Draft mode — each message fills a Gmail compose window over CDP; nothing is sent.' : 'Send mode — delivering via CDP-driven Gmail tabs on :9222.' },
+          {
+            stream: 'stdout',
+            line: rotation.length > 1
+              ? `Rotating ${rotation.length} templates in order — each account walks the full set.`
+              : 'One template — every recipient gets the same body.',
+          },
           { stream: 'stdout', line: 'Starting the sender process…' },
         ],
       },
     });
 
-    saveCampaignTemplate({ subject: s.subject, message })
+    saveCampaignTemplates(rotation)
       .then(() => startCampaignSend({ dryRun: dry, all, count, index, perAccount, accounts: slots, sentOffsets: dry ? undefined : sentOffsets }))
       .then((state) => {
         // Adopt the backend job's startedAt as the run key so the de-dup
@@ -1125,15 +1123,25 @@ export function useApp() {
   });
 
   const isDraft = draftMode;
-  const hasSubject = !!s.subject.trim();
-  const hasBody = !!s.body.trim();
+  // The variant the editor is showing. Every other derived value below (preview,
+  // pre-flight, the tab strip) reads the rotation, not just this one.
+  const activeTpl = s.templates[s.tplIndex] ?? s.templates[0];
+  const tplTotal = s.templates.length;
+  // The sender sends all of them, so a half-written variant blocks the launch
+  // just as an empty single template used to.
+  const tplReady = s.templates.filter((t) => !!t.subject.trim() && !!t.body.trim()).length;
+  const tplAllReady = tplReady === tplTotal;
   const hasIdentity = !!s.senderIdentity.trim();
   const hasUnsub = !!s.unsubLine.trim();
   const capOverGmail = s.dailyCap > SAFE_DAILY_CAP;
   const checklist = [
     { label: 'Chrome CDP connected', ok: cdpUp, hint: cdpUp ? cdpEndpointShort : 'offline — fix in Accounts' },
     { label: 'Accounts selected', ok: enabledCount > 0, hint: enabledCount + ' account' + (enabledCount !== 1 ? 's' : '') },
-    { label: 'Subject + body present', ok: hasSubject && hasBody, hint: hasSubject && hasBody ? 'ready' : 'incomplete' },
+    {
+      label: tplTotal > 1 ? `Subject + body in all ${tplTotal} templates` : 'Subject + body present',
+      ok: tplAllReady,
+      hint: tplAllReady ? 'ready' : `${tplReady}/${tplTotal} ready`,
+    },
     { label: 'Sender identity line', ok: hasIdentity, hint: hasIdentity ? 'ok' : 'required' },
     { label: 'Unsubscribe / opt-out line', ok: hasUnsub, hint: hasUnsub ? 'ok' : 'required' },
     { label: 'Recipients resolved', ok: recip > 0, hint: fmt(recip) + ' unique' },
@@ -1161,8 +1169,35 @@ export function useApp() {
   });
 
   const firstName = sample ? sample.name.split(' ')[0] : 'there';
-  const previewSubject = s.subject.split('{{firstName}}').join(firstName);
-  const previewBody = s.body.split('{{firstName}}').join(firstName);
+  const previewSubject = activeTpl.subject.split('{{firstName}}').join(firstName);
+  const previewBody = activeTpl.body.split('{{firstName}}').join(firstName);
+
+  // Subject/body edits land on whichever variant the editor is showing.
+  const patchTemplate = (p: Partial<DraftTemplate>) =>
+    update((st) => ({
+      templates: st.templates.map((t, i) => (i === st.tplIndex ? { ...t, ...p } : t)),
+    }));
+
+  const addTemplate = () => {
+    if (tplTotal >= MAX_TEMPLATES) {
+      toast(`A rotation holds at most ${MAX_TEMPLATES} templates`, 'warning');
+      return;
+    }
+    // Seed the new variant from the one on screen and open it: rotations are
+    // written by rewording a copy, and it carries the {{firstName}} token over.
+    update((st) => ({ templates: [...st.templates, { ...activeTpl }], tplIndex: st.templates.length }));
+  };
+
+  const removeTemplate = (i: number) => {
+    if (tplTotal <= 1) {
+      toast('The rotation needs at least one template', 'warning');
+      return;
+    }
+    update((st) => {
+      const templates = st.templates.filter((_, j) => j !== i);
+      return { templates, tplIndex: Math.min(st.tplIndex, templates.length - 1) };
+    });
+  };
 
   const exportsList = exportsRes.data.map((f) => ({
     key: f.name, name: f.name, type: f.type,
@@ -1762,11 +1797,28 @@ export function useApp() {
     onLeadsPageSizeChange: (size: number) =>
       update((st) => ({ leadsPageSize: size, leadsPage: Math.floor((st.leadsPage * st.leadsPageSize) / size) })),
 
-    subject: s.subject, body: s.body,
-    onSubject: (e: React.ChangeEvent<HTMLInputElement>) => patch({ subject: e.target.value }),
-    onBody: (e: React.ChangeEvent<HTMLTextAreaElement>) => patch({ body: e.target.value }),
-    insertToken: () => update((st) => ({ body: (st.body || '') + ' {{firstName}}' })),
+    subject: activeTpl.subject, body: activeTpl.body,
+    onSubject: (e: React.ChangeEvent<HTMLInputElement>) => patchTemplate({ subject: e.target.value }),
+    onBody: (e: React.ChangeEvent<HTMLTextAreaElement>) => patchTemplate({ body: e.target.value }),
+    insertToken: () => patchTemplate({ body: (activeTpl.body || '') + ' {{firstName}}' }),
     tokenChip: '{{firstName}}',
+    // One tab per variant in the rotation. `ready` flags a half-written one so it
+    // is visible before the pre-flight blocks the launch.
+    templateTabs: s.templates.map((t, i) => ({
+      key: i,
+      label: 'T' + (i + 1),
+      on: i === s.tplIndex,
+      ready: !!t.subject.trim() && !!t.body.trim(),
+      select: () => patch({ tplIndex: i }),
+      remove: () => removeTemplate(i),
+    })),
+    tplIndex: s.tplIndex, tplTotal, tplReady, maxTemplates: MAX_TEMPLATES,
+    canAddTemplate: tplTotal < MAX_TEMPLATES,
+    canRemoveTemplate: tplTotal > 1,
+    addTemplate,
+    rotationNote: tplTotal > 1
+      ? `Sent in order, one variant per message — each account walks all ${tplTotal}.`
+      : `Add a variant to rotate bodies across recipients (up to ${MAX_TEMPLATES}).`,
     sampleEmail: sample?.email ?? '—', previewSubject, previewBody,
     previewIdentity: s.senderIdentity, previewUnsub: s.unsubLine,
     senderIdentity: s.senderIdentity, onIdentity: (e: React.ChangeEvent<HTMLInputElement>) => patch({ senderIdentity: e.target.value }),

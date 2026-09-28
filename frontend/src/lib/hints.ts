@@ -24,8 +24,8 @@ export const HINTS = {
   leadsPage: 'Every harvested developer. Search, filter by email / hireable / source, sort, and open a profile for full detail.',
 
   campPage: 'Compose a personalized cold-email campaign and send it across your rotating Gmail accounts.',
-  campTemplate: 'Subject and body of the email. Use tokens like {name} to personalize each message per recipient.',
-  campPreview: 'How the email renders for a real sample recipient, including the required identity and unsubscribe footer.',
+  campTemplate: 'Up to 10 subject/body variants, sent in order in rotation — each account walks the whole set, so consecutive recipients get different copy. Use tokens like {name} to personalize each message per recipient.',
+  campPreview: 'How the selected template renders for a real sample recipient, including the required identity and unsubscribe footer.',
   campScope: 'Which harvested leads receive this campaign — everyone from a start index, or a fixed count.',
   campSenders: 'Which Gmail accounts send this run, and the per-account daily cap. Sending rotates across them.',
   campPreflight: 'Readiness checks that must pass before launch — template, recipients, accounts, and Chrome connection.',

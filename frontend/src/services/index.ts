@@ -18,7 +18,8 @@ export {
 } from './discovery.service';
 export type { JobState, JobLine, JobStatus } from './discovery.service';
 export {
-  saveTemplate as saveCampaignTemplate,
+  saveTemplates as saveCampaignTemplates,
+  MAX_TEMPLATES,
   startCampaignSend,
   stopCampaignSend,
   fetchCampaignSendStatus,
