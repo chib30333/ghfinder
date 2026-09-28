@@ -1,4 +1,20 @@
 {
-  "subject": "Hi, {{firstName}}",
-  "message": ""
+  "templates": [
+    {
+      "subject": "Hi, {{firstName}}",
+      "message": "Nice to meet you.\nI went through your GitHub profile, and was very impressed.\nI am Wei, a full-stack and AI developer with a dedicate of experience.\nI enjoy constantly generating new ideas and turning them into real-world products.\nDo you happen to need any assistance or have any interest in collaborating with me?\nIf you are open, I'd like to get a brief call to discuss whether our interests align.\nCheers.\n\nBest regards\nWei"
+    },
+    {
+      "subject": "Hi, {{firstName}}",
+      "message": "Glad to meet you.\nI took a look your GitHub profile with my interest, and was very impressed.\nI am Wei, a full-stack developer with 8+ years of experience.\nI enjoy constantly generating new ideas and turning them into real-world products.\nAbove all, I really enjoy to help others so he can get more peaceful and get more profit.\nMaybe if you need any helps or have any interest in collaborating with me?\nIf yes, I'd like to get a quick call to discuss whether our interests align.\nCheers.\n\nBest regards\nWei"
+    },
+    {
+      "subject": "Hi, {{firstName}}",
+      "message": "It's nice to meet you.\nI’m Wei, a full stack developer with more than 8 years of experience.\nI enjoy turning new ideas to real product and right now I am looking for a partner to collaborate with me.\n\nIf you have any personal projects or tasks you would like me to handle, please feel free to let me know at any time.\nOr particuarlly, if you have one idea, and hope to build it, I can help you.\nI look forward to hearing from you.\n\nKind regards,\nWei\n\nBest regards\nWei"
+    },
+    {
+      "subject": "Hi, {{firstName}}",
+      "message": "I found your GitHub profile and liked what I saw.\nI’m Xin, a full-stack and mobile developer with more than a decade of experience. I enjoy turning ideas into working software, and I’d love to meet someone who’s interested in doing that together.\nIf you’re open to a collaboration, let’s have a quick chat and see whether our interests line up.\nCheers,\n\nBest regards\nWei"
+    }
+  ]
 }
