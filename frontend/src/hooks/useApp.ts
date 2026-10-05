@@ -594,12 +594,16 @@ export function useApp() {
   const sample: Lead | undefined = sampleRes.data.leads[0];
 
   const debouncedSearch = useDebounced(s.search, 300);
+  // A typed search looks across every country: an operator pasting an email or
+  // login they saw elsewhere (campaign history, a reply) expects to find it even
+  // when the lead was sourced from another market than the one the table shows.
+  const searchingAll = !!debouncedSearch.trim();
   const leadsRes = useResource(
     () => fetchLeads({
       search: debouncedSearch,
       hasEmail: true,
       source: s.fltSource,
-      country: s.fltCountry,
+      country: searchingAll ? undefined : s.fltCountry,
       sort: { key: s.sortKey, dir: s.sortDir },
       limit: s.leadsPageSize,
       offset: s.leadsPage * s.leadsPageSize,
@@ -1765,8 +1769,10 @@ export function useApp() {
     leadCount: fmt(leadsTotal), search: s.search, onSearch: (e: React.ChangeEvent<HTMLInputElement>) => patch({ search: e.target.value, leadsPage: 0 }),
     sourceTabs: srcTabs,
     // The table is always scoped to exactly one country, so this is a plain
-    // picker with no "all countries" option.
+    // picker with no "all countries" option — except while a search is typed,
+    // when the search spans every country and the picker is paused.
     leadCountry: s.fltCountry,
+    leadSearchAll: searchingAll,
     leadCountryName: countryOptions.find((c) => c.code === s.fltCountry)?.name ?? s.fltCountry,
     leadCountryOptions: countryOptions,
     onLeadCountry: (code: string) => patch({ fltCountry: code, leadsPage: 0, sel: {} }),
