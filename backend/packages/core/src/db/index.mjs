@@ -408,9 +408,12 @@ export function listUsers(opts = {}) {
   const where = [];
   const params = [];
   if (search) {
-    where.push('(u.login LIKE ? OR u.name LIKE ? OR u.email LIKE ?)');
+    // Free-text search over every human-readable column so an operator can find
+    // a lead by whatever they have at hand — an email from a reply, a company,
+    // a city — not only by login/name.
+    where.push('(u.login LIKE ? OR u.name LIKE ? OR u.email LIKE ? OR u.location LIKE ? OR u.company LIKE ?)');
     const like = `%${search}%`;
-    params.push(like, like, like);
+    params.push(like, like, like, like, like);
   }
   if (hasEmail) where.push("u.email IS NOT NULL AND TRIM(u.email) != ''");
   if (hasSocial) where.push('(u.telegram IS NOT NULL OR u.discord IS NOT NULL)');

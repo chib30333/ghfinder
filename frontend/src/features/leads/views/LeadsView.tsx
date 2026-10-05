@@ -123,7 +123,9 @@ export function LeadsView({ v }: { v: V }) {
         )}
       </div>
 
-      {/* The table shows one country at a time — no "all countries" option. */}
+      {/* The table shows one country at a time — no "all countries" option.
+          A typed search is the exception: it spans every country so a pasted
+          email/login is found wherever the lead was sourced from. */}
       <div className="flex items-center gap-2.5 flex-wrap mb-3.5">
         <label htmlFor="leads-country" className="text-[11px] text-muted uppercase tracking-wide">
           Country
@@ -132,7 +134,9 @@ export function LeadsView({ v }: { v: V }) {
           id="leads-country"
           value={v.leadCountry}
           onChange={(e) => v.onLeadCountry(e.target.value)}
-          className="h-[34px] rounded-8 border border-line bg-surface-2 pl-2.5 pr-2 text-[13px] text-fg cursor-pointer outline-none focus-visible:border-accent max-w-[220px]"
+          disabled={v.leadSearchAll}
+          title={v.leadSearchAll ? 'Search looks across all countries. Clear the search to filter by country.' : undefined}
+          className="h-[34px] rounded-8 border border-line bg-surface-2 pl-2.5 pr-2 text-[13px] text-fg cursor-pointer outline-none focus-visible:border-accent max-w-[220px] disabled:opacity-50 disabled:cursor-not-allowed"
         >
           {v.leadCountryOptions.map((c) => (
             <option key={c.code} value={c.code}>{c.flag} {c.name}</option>
@@ -140,7 +144,11 @@ export function LeadsView({ v }: { v: V }) {
         </select>
         {v.leadsRefetching && <Spinner size={14} className="text-accent" />}
         <span className="text-[12px] text-muted">
-          Showing leads sourced from <span className="text-fg">{v.leadCountryName}</span> only.
+          {v.leadSearchAll ? (
+            <>Searching across <span className="text-fg">all countries</span>. Clear the search to scope by country.</>
+          ) : (
+            <>Showing leads sourced from <span className="text-fg">{v.leadCountryName}</span> only.</>
+          )}
         </span>
       </div>
 
@@ -180,8 +188,10 @@ export function LeadsView({ v }: { v: V }) {
             action: <Button variant="primary" onClick={v.retryLeads}>Retry</Button>,
           }}
           emptyState={{
-            title: `No leads for ${v.leadCountryName}`,
-            description: 'Crawl this country from Countries, or pick another country / widen your search.',
+            title: v.leadSearchAll ? 'No leads match your search' : `No leads for ${v.leadCountryName}`,
+            description: v.leadSearchAll
+              ? 'Search covers login, name, email, location and company across every country.'
+              : 'Crawl this country from Countries, or pick another country / widen your search.',
             action: <Button variant="primary" onClick={v.clearFilters}>Clear filters</Button>,
           }}
           stickyHeader
